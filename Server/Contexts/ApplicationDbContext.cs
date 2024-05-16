@@ -10,7 +10,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     : IdentityDbContext<User, ApplicationRole, long>(options)
 {
     public required DbSet<RefreshToken> RefreshTokens { get; set; }
-    public required DbSet<DecisionMatrix> DecisionElements { get; set; }
+    public required DbSet<DecisionMatrix> DecisionMatrices { get; set; }
     public required DbSet<DecisionMatrixStats> DecisionMatrixStats { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
@@ -32,6 +32,11 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
                .WithMany(u => u.CreatedDecisionMatrices)
                .HasForeignKey(d => d.UserId)
                .IsRequired();
+        
+        builder.Entity<DecisionMatrix>()
+               .HasMany(d => d.Participants)
+               .WithMany(u => u.AccessibleDecisionMatrices)
+               .UsingEntity(j => j.ToTable("DecisionMatrixAccess"));
         
         builder.Entity<DecisionMatrixStats>()
                .HasOne(dms => dms.Matrix)
