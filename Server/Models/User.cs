@@ -1,5 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Identity;
+using Server.Models.DecisionElements;
+using Server.Models.DecisionElements.Stats;
 
 namespace Server.Models;
 
@@ -23,4 +25,10 @@ public class User : IdentityUser<long>
     public required string LastName { get; set; }
     
     public ICollection<RefreshToken> RefreshTokens { get; set; } = null!;
+    
+    public ICollection<DecisionMatrix> CreatedDecisionMatrices { get; set; } = null!;
+    
+    public ICollection<DecisionMatrixStats> CompletedDecisionMatrixStats { get; set; } = null!;
+    
+    public ICollection<DecisionMatrix> AccessibleDecisionMatrices { get; set; } = null!;
 }

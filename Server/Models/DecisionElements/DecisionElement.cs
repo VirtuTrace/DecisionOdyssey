@@ -24,4 +24,6 @@ public abstract class DecisionElement
     [JsonIgnore]
     [ForeignKey("UserId")]
     public User User { get; init; } = null!;
+    
+    public ICollection<User> Participants { get; set; } = null!; // Users who have access (to complete) to this DecisionElement
 }
