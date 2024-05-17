@@ -1,4 +1,4 @@
-﻿namespace Common.Models.Dtos.DecisionElements.Stats;
+﻿namespace Common.DataStructures.Dtos.DecisionElements.Stats;
 
 public class DecisionMatrixStatsDto
 {

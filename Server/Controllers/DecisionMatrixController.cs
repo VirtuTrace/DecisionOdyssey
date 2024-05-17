@@ -1,6 +1,6 @@
 ﻿using System.Text.Json;
 using AutoMapper;
-using Common.Models.Dtos.DecisionElements;
+using Common.DataStructures.Dtos.DecisionElements;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;

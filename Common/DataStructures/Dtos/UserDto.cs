@@ -1,4 +1,4 @@
-﻿namespace Common.Models.Dtos;
+﻿namespace Common.DataStructures.Dtos;
 
 public class UserDto
 {

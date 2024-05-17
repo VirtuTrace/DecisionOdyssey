@@ -1,7 +1,7 @@
 ﻿using AutoMapper;
-using Common.Models.Dtos;
-using Common.Models.Dtos.DecisionElements;
-using Common.Models.Dtos.DecisionElements.Stats;
+using Common.DataStructures.Dtos;
+using Common.DataStructures.Dtos.DecisionElements;
+using Common.DataStructures.Dtos.DecisionElements.Stats;
 using Server.Models;
 using Server.Models.DecisionElements;
 using Server.Models.DecisionElements.Stats;

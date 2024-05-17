@@ -1,4 +1,4 @@
-﻿namespace Common.Models.Http.Requests;
+﻿namespace Common.DataStructures.Http.Requests;
 
 public class TokenRequest
 {

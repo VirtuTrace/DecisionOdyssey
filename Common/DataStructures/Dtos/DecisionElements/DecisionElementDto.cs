@@ -1,4 +1,4 @@
-﻿namespace Common.Models.Dtos.DecisionElements;
+﻿namespace Common.DataStructures.Dtos.DecisionElements;
 
 public abstract class DecisionElementDto
 {

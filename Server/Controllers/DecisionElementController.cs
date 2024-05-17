@@ -1,5 +1,5 @@
 ﻿using AutoMapper;
-using Common.Models.Dtos.DecisionElements;
+using Common.DataStructures.Dtos.DecisionElements;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -20,8 +20,8 @@ public abstract class DecisionElementController<TDto>(
     : ApplicationControllerBase(context, logger, userManager)
     where TDto : DecisionElementDto
 {
-    private readonly ApplicationDbContext _context = context;
-    
+    private readonly ILogger _logger = logger;
+
     protected abstract string DecisionElementDirectoryName { get; }
     
     // GET: api/<DecisionElement>/created
@@ -105,7 +105,7 @@ public abstract class DecisionElementController<TDto>(
     {
         if(file.Length == 0)
         {
-            logger.LogWarning("File is empty");
+            _logger.LogWarning("File is empty");
             return BadRequest("File is empty");
         }
         
@@ -132,7 +132,7 @@ public abstract class DecisionElementController<TDto>(
     {
         if(file.Length == 0)
         {
-            logger.LogWarning("File is empty");
+            _logger.LogWarning("File is empty");
             return BadRequest("File is empty");
         }
         

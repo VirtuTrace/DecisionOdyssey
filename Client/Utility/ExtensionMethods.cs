@@ -2,7 +2,7 @@
 
 public static class ExtensionMethods
 {
-    public async static Task<byte[]> GetBytesAsync(this Stream stream)
+    public static async Task<byte[]> GetBytesAsync(this Stream stream)
     {
         var memoryStream = new MemoryStream();
         await stream.CopyToAsync(memoryStream);
@@ -32,9 +32,11 @@ public static class ExtensionMethods
 
     public static void Initialize<T>(this List<List<T>> list, int rows, int columns) where T : new()
     {
+        list.Capacity = rows;
         for(var row = 0; row < rows; row++)
         {
-            list.Add([]);
+            var rowList = new List<T>(columns);
+            list.Add(rowList);
             for(var column = 0; column < columns; column++)
             {
                 list[row].Add(new T());

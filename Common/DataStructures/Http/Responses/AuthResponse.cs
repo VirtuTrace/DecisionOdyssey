@@ -1,4 +1,4 @@
-﻿namespace Common.Models.Http.Responses;
+﻿namespace Common.DataStructures.Http.Responses;
 
 public class AuthResponse
 {

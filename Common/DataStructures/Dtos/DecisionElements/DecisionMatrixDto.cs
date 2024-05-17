@@ -1,6 +1,6 @@
 ﻿using Common.Enums;
 
-namespace Common.Models.Dtos.DecisionElements;
+namespace Common.DataStructures.Dtos.DecisionElements;
 
 public class DecisionMatrixDto : DecisionElementDto
 {
