@@ -1,0 +1,23 @@
+﻿@using Client.Singletons
+
+@inject ApplicationState ApplicationState
+
+<MudNavMenu>
+    @if (!ApplicationState.LoggedIn)
+    {
+        <MudNavLink Href="register" Icon="@Icons.Material.Filled.AppRegistration">Register</MudNavLink>
+        <MudNavLink Href="login" Icon="@Icons.Material.Filled.Login">Login</MudNavLink>
+    }
+    else
+    {
+        <MudNavLink Href="logout" Icon="@Icons.Material.Filled.Logout">Logout</MudNavLink>
+    }
+    <MudNavLink Href="" Icon="@Icons.Material.Filled.Home" Disabled="@(ApplicationState.GuestLogin)">Home</MudNavLink>
+    <MudNavLink Href="editor/matrix" Icon="@Icons.Material.Filled.Edit" Disabled="@(ApplicationState.GuestLogin)">Editor</MudNavLink>
+    <MudNavLink Href="viewer/select" Icon="@Icons.Material.Filled.Visibility" Disabled="@(ApplicationState.GuestLogin)">Viewer</MudNavLink>
+    <MudNavLink Href="viewer/stats" Icon="@Icons.Material.Filled.BarChart" Disabled="@(ApplicationState.GuestLogin)">Stats</MudNavLink>
+</MudNavMenu>
+
+@code {
+    
+}

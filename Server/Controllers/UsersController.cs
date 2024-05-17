@@ -8,12 +8,12 @@ using Common.DataStructures.Http.Requests;
 using Common.DataStructures.Http.Responses;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Identity.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Server.Contexts;
 using Server.Models;
+using LoginRequest = Microsoft.AspNetCore.Identity.Data.LoginRequest;
 
 namespace Server.Controllers;
 
@@ -27,6 +27,7 @@ public class UsersController(
     IMapper mapper) : ApplicationControllerBase(context, logger, userManager)
 {
     private const int RefreshTokenLifetime = 7; // Days
+    private const int GuestRefreshTokenLifetime = 1; // Days
     private const int AccessTokenLifetime = 60; // Minutes
     
     private readonly ApplicationDbContext _context = context;
@@ -126,6 +127,47 @@ public class UsersController(
         {
             AccessToken = accessToken,
             RefreshToken = refreshToken
+        });
+    }
+    
+    // POST: api/User/guest-login
+    [HttpPost("guest-login")]
+    public async Task<ActionResult<GuestAuthResponse>> GuestLogin()
+    {
+        var guid = Guid.NewGuid();
+        var guestId = $"Guest-{guid}";
+        var guest = new User
+        {
+            FirstName = guestId,
+            LastName = guestId,
+            Email = guestId,
+            UserName = guestId,
+            Guid = guid
+        };
+        
+        var result = await _userManager.CreateAsync(guest, guid.ToString());
+        if (!result.Succeeded)
+        {
+            logger.LogInformation("Failed to create user {email}", guestId);
+            var errors = result.Errors.Select(e => e.Description);
+            return BadRequest(new { errors });
+        }
+        
+        // Add guest role
+        await _userManager.AddToRoleAsync(guest, "Guest");
+        
+        logger.LogInformation("Created guest {email}", guest.Email);
+        
+        var accessToken = await GenerateAccessToken(guest);
+        var refreshToken = GenerateRefreshToken();
+        await AddRefreshToken(guest, refreshToken, lifetime: GuestRefreshTokenLifetime);
+
+        logger.LogInformation("Guest {email} logged in", guest.Email);
+        return Ok(new GuestAuthResponse
+        {
+            AccessToken = accessToken,
+            RefreshToken = refreshToken,
+            GuestId = guest.Email
         });
     }
 
@@ -270,12 +312,13 @@ public class UsersController(
     /// </summary>
     /// <param name="user">User to add the refresh token to</param>
     /// <param name="refreshToken">Refresh token to add</param>
-    private async Task AddRefreshToken(User user, string refreshToken)
+    /// <param name="lifetime">Lifetime of the refresh token in days (Default: <see cref="RefreshTokenLifetime"/>)</param>
+    private async Task AddRefreshToken(User user, string refreshToken, int lifetime = RefreshTokenLifetime)
     {
         var token = new RefreshToken
         {
             Token = refreshToken,
-            ExpiryTime = DateTimeOffset.UtcNow.AddDays(RefreshTokenLifetime),
+            ExpiryTime = DateTimeOffset.UtcNow.AddDays(lifetime),
             Valid = true,
             UserId = user.Id,
             User = user

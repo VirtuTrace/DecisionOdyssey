@@ -1,6 +1,7 @@
 ﻿export function get(key)
 {
-    return window.localStorage.getItem(key);
+    let value = window.localStorage.getItem(key);
+    return value ? value : null;
 }
 
 export function exists(key)

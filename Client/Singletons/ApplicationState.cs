@@ -1,10 +1,17 @@
 ﻿using Client.JSWrappers;
+using Common.DataStructures.Http.Responses;
 using MudBlazor.Components.Chart;
 
 namespace Client.Singletons;
 
 public class ApplicationState
 {
+    private const string AccessTokenKey = "accessToken";
+    private const string RefreshTokenKey = "refreshToken";
+    private const string EmailKey = "email";
+    private const string DarkModeKey = "darkMode";
+    
+    
     private LocalStorageAccessor _localStorageAccessor = null!;
     private bool _darkMode;
 
@@ -20,7 +27,8 @@ public class ApplicationState
         }
     }
 
-    public string Token { get; private set; } = string.Empty;
+    public string AccessToken { get; private set; } = string.Empty;
+    public string RefreshToken { get; private set; } = string.Empty;
     public string Email { get; private set; } = string.Empty;
     public Matrix? SelectedMatrix { get; set; }
     public int[]? RowRatings { get; set; }
@@ -30,13 +38,28 @@ public class ApplicationState
     public event Action? OnLoggedInStateChanged;
     public event Action? OnDarkModeChanged;
 
-    public async Task LoginAsync(string email, string token)
+    public async Task LoginAsync(AuthResponse authResponse, string? email = null)
     {
         LoggedIn = true;
-        Email = email;
-        Token = token;
-        await _localStorageAccessor.SetValueAsync("email", email);
-        await _localStorageAccessor.SetValueAsync("token", token);
+        
+        if (authResponse is GuestAuthResponse guestAuthResponse)
+        {
+            Email = guestAuthResponse.GuestId;
+        }
+        else if (email is null)
+        {
+            throw new ArgumentNullException(nameof(email));
+        }
+        else
+        {
+            Email = email;
+        }
+        
+        AccessToken = authResponse.AccessToken;
+        RefreshToken = authResponse.RefreshToken;
+        await _localStorageAccessor.SetValueAsync(EmailKey, email);
+        await _localStorageAccessor.SetValueAsync(AccessTokenKey, AccessToken);
+        await _localStorageAccessor.SetValueAsync(RefreshTokenKey, RefreshToken);
         OnLoggedInStateChanged?.Invoke();
     }
     
@@ -44,23 +67,20 @@ public class ApplicationState
     {
         LoggedIn = false;
         Email = "";
-        Token = "";
-        await _localStorageAccessor.RemoveAsync("email");
-        await _localStorageAccessor.RemoveAsync("token");
+        AccessToken = "";
+        await _localStorageAccessor.RemoveAsync(EmailKey);
+        await _localStorageAccessor.RemoveAsync(AccessTokenKey);
         OnLoggedInStateChanged?.Invoke();
     }
     
     public async Task InitializeAsync(LocalStorageAccessor localStorageAccessor)
     {
         _localStorageAccessor = localStorageAccessor;
-        if (!await localStorageAccessor.CheckValueExistsAsync("token"))
-        {
-            LoggedIn = false;
-            return;
-        }
-
-        LoggedIn = true;
-        Token = await localStorageAccessor.GetValueAsync<string>("token");
-        Email = await localStorageAccessor.GetValueAsync<string>("email");
+        AccessToken = (await localStorageAccessor.GetValueOrDefaultAsync(AccessTokenKey, string.Empty))!;
+        RefreshToken = (await localStorageAccessor.GetValueOrDefaultAsync(RefreshTokenKey, string.Empty))!;
+        Email = (await localStorageAccessor.GetValueOrDefaultAsync(EmailKey, string.Empty))!;
+        DarkMode = (await localStorageAccessor.GetValueOrDefaultAsync(DarkModeKey, false))!;
+        
+        LoggedIn = !string.IsNullOrWhiteSpace(RefreshToken) && !string.IsNullOrWhiteSpace(Email);
     }
 }
