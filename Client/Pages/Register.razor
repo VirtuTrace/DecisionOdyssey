@@ -6,6 +6,7 @@
 
 @using Client.Models.Authentication
 @using Common.DataStructures.Http.Requests
+@using Common.DataStructures.Http.Responses
 
 <MudCard>
     <MudCardHeader>
@@ -71,11 +72,17 @@
         }
         else
         {
-            var message = await response.Content.ReadAsStringAsync();
-            if (message == "")
+            var error = await response.Content.ReadFromJsonAsync<ErrorMessage>();
+            string message;
+            if (error is null || error.Message == "")
             {
                 message = "Registration Failed!";
             }
+            else
+            {
+                message = error.Message;
+            }
+            
             Snackbar.Add(message, Severity.Error);
         }
     }

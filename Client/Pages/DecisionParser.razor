@@ -1,0 +1,456 @@
+﻿@page "/decision-parser"
+
+@using System.Xml.Linq
+@using Client.Utility
+
+@if (DataLoaded)
+{
+    <MudGrid>
+        <MudItem xs="6">
+            <MudText Typo="Typo.h1">Decision Analysis</MudText>
+            <MudText Typo="Typo.h3">Final Choice</MudText>
+            <MudText Typo="Typo.body1">@FinalChoice</MudText>
+            <MudText Typo="Typo.h3">Selection percentages</MudText>
+            <MudText Typo="Typo.h4">Alternatives</MudText>
+            <MudText Typo="Typo.body1">
+                @foreach (var alt in AlternativesSelectionPercentages)
+                {
+                    @alt<br/>
+                }
+            </MudText>
+            <MudText Typo="Typo.h4">Decision Factors</MudText>
+            <MudText Typo="Typo.body1">
+                @foreach (var factor in DecisionFactorsSelectionPercentages)
+                {
+                    @factor<br/>
+                }
+            </MudText>
+            <MudText Typo="Typo.h3">Search indices</MudText>
+            <MudText Typo="Typo.body1">@SearchIndex</MudText>
+            <MudText Typo="Typo.h4">Alternatives</MudText>
+            <MudText Typo="Typo.body1">
+                @foreach (var alt in AlternativeSearchIndices)
+                {
+                    @alt<br/>
+                }
+            </MudText>
+            <MudText Typo="Typo.h4">Decision Factors</MudText>
+            <MudText Typo="Typo.body1">
+                @foreach (var factor in DecisionFactorSearchIndices)
+                {
+                    @factor<br/>
+                }
+            </MudText>
+            <MudText Typo="Typo.h3">Analysis of completeness</MudText>
+            <MudText Typo="Typo.body1">@CompletenessAnalysis</MudText>
+        </MudItem>
+        <MudItem xs="6">
+            <MudText Typo="Typo.h1">&nbsp;</MudText>
+            <MudText Typo="Typo.h3">Selection flow (ms since start)</MudText>
+            <MudSimpleTable>
+                <thead>
+                <tr>
+                    <th style="border-right: 1px solid #cdd0d4;"></th>
+                    @foreach (var alt in Alternatives)
+                    {
+                        <th style="border-right: 1px solid #cdd0d4;">@alt</th>
+                    }
+                </tr>
+                </thead>
+                <tbody>
+                @foreach (var (row, factor) in DecisionFactors.Enumerate())
+                {
+                    <tr>
+                        <th style="border-right: 1px solid #cdd0d4;">@factor</th>
+                        @for (var col = 0; col < Alternatives.Count; col++)
+                        {
+                            <td style="border-right: 1px solid #cdd0d4;">
+                                @foreach (var trace in MatrixTrace[row, col])
+                                {
+                                    <MudText Typo="Typo.body1">@trace</MudText>
+                                }
+                            </td>
+                        }
+                    </tr>
+                }
+                <tr>
+                    <th style="border-right: 1px solid #cdd0d4;"></th>
+                    @foreach (var decision in Decision)
+                    {
+                        <td style="border-right: 1px solid #cdd0d4;">@decision</td>
+                    }
+                </tr>
+                </tbody>
+            </MudSimpleTable>
+        </MudItem>
+    </MudGrid>
+}
+else
+{
+    <MudStack Style="width: 100%" AlignItems="AlignItems.Center" Justify="Justify.Center">
+        <MudFileUpload T="IBrowserFile"
+                       FilesChanged="ProcessFile"
+                       Hidden="@false"
+                       InputClass="absolute mud-width-full mud-height-full overflow-hidden z-20"
+                       InputStyle="opacity:0">
+            <ButtonTemplate>
+                <MudGrid>
+                    <MudItem xs="4"></MudItem>
+                    <MudItem xs="4">
+                        <MudText Typo="Typo.h1">VirtuTrace Decision Analyzer</MudText>
+                        <MudText Typo="Typo.body1">Drag and drop an XML to initiate decision analysis.</MudText>
+                        <MudToolBar DisableGutters="true"
+                                    Class="relative d-flex justify-center gap-4 z-30">
+                            <MudButton HtmlTag="label"
+                                       Color="Color.Primary"
+                                       for="@context.Id"
+                                       Variant="Variant.Outlined">
+                                Click to select file...
+                            </MudButton>
+                        </MudToolBar>
+                    </MudItem>
+                    <MudItem xs="4"></MudItem>
+                </MudGrid>
+            </ButtonTemplate>
+        </MudFileUpload>
+    </MudStack>
+}
+
+@code {
+    private bool DataLoaded { get; set; }
+    private string FinalChoice { get; set; } = "Decision at # seconds.";
+    private List<string> AlternativesSelectionPercentages { get; } = [];
+    private List<string> DecisionFactorsSelectionPercentages { get; } = [];
+    private string SearchIndex { get; set; } = "The search index is #.";
+    private List<string> AlternativeSearchIndices { get; } = [];
+    private List<string> DecisionFactorSearchIndices { get; } = [];
+    private string CompletenessAnalysis { get; set; } = "Selection procedure #% holistic.";
+    private List<string> Alternatives { get; set; } = [];
+    private List<string> DecisionFactors { get; set; } = [];
+    private List<string>[,] MatrixTrace { get; set; } = new List<string>[0, 0];
+    private string[] Decision { get; set; } = [];
+
+    private async Task ProcessFile(IBrowserFile? file)
+    {
+        if (file is null)
+        {
+            return;
+        }
+        
+        Console.WriteLine($"Processing file {file.Name}...");
+        if (file.ContentType != "text/xml")
+        {
+            await Console.Error.WriteLineAsync("Invalid file type.");
+            return;
+        }
+        var stream = file.OpenReadStream();
+        var document = await XDocument.LoadAsync(stream, LoadOptions.None, default);
+        var root = document.Root!;
+        var labels = root.Element("labels");
+        if(labels is null)
+        {
+            await Console.Error.WriteLineAsync("Invalid Decision Matrix XML format.");
+            return;
+        }
+        
+        var alternativesElement = labels.Element("alternatives");
+        if (alternativesElement is null)
+        {
+            await Console.Error.WriteLineAsync("Invalid Decision Matrix XML format.");
+            return;
+        }
+        
+        // Read alternative labels
+        Alternatives = alternativesElement.Elements().Select(e => e.Value).ToList();
+        var alternativesIndexLookup = Alternatives
+            .Select((alt, index) => (alt, index))
+            .ToDictionary(pair => pair.alt, pair => pair.index);
+        
+        // Decision factors are the same as dimensions
+        var decisionFactorsElement = labels.Element("dimensions");
+        if (decisionFactorsElement is null)
+        {
+            await Console.Error.WriteLineAsync("Invalid Decision Matrix XML format.");
+            return;
+        }
+        
+        // Read dimension labels
+        DecisionFactors = decisionFactorsElement.Elements().Select(e => e.Value).ToList();
+        var decisionFactorsIndexLookup = DecisionFactors
+            .Select((dim, index) => (dim, index))
+            .ToDictionary(pair => pair.dim, pair => pair.index);
+        
+        // Populate trace matrix
+        MatrixTrace = new List<string>[DecisionFactors.Count, Alternatives.Count];
+        for (var row = 0; row < DecisionFactors.Count; row++)
+        {
+            for (var col = 0; col < Alternatives.Count; col++)
+            {
+                MatrixTrace[row, col] = [];
+            }
+        }
+        Decision = new string[Alternatives.Count];
+        for(var i = 0; i < Alternatives.Count; i++)
+        {
+            Decision[i] = "";
+        }
+        
+        // Create arrays to track the number of times the participant
+        // interacted with each of the dimensions and alternatives.
+        var decisionFactorsSelectionCounts = new int[DecisionFactors.Count];
+        var totalDecisionFactorsSelectionCounts = 0;
+        Console.WriteLine($"There are {DecisionFactors.Count} decision factors.");
+        
+        var alternativesSelectionCounts = new int[Alternatives.Count];
+        var totalAlternativesSelectionCounts = 0;
+        Console.WriteLine($"There are {Alternatives.Count} alternatives.");
+        
+        // The attribute rank is the average rank of each dimension.
+        // It's used in detecting the decision strategy used.
+        var attributeRank = new double[DecisionFactors.Count];
+        
+        // Read matrix interactions
+        var previousAlternative = "";
+        var previousDecisionFactor = "";
+        var siAlt = 0.0;
+        var siDim = 0.0;
+        var siMix = 0.0;
+        var interactionsElement = root.Element("interactions");
+        if (interactionsElement is null)
+        {
+            await Console.Error.WriteLineAsync("Invalid Decision Matrix XML format.");
+            return;
+        }
+        
+        var interactions = interactionsElement.Elements();
+        var index = 0;
+        foreach (var interaction in interactions)
+        {
+            index++;
+            var type = interaction.Name.LocalName;
+            string dim;
+            string alt;
+            long timestamp;
+            switch (type)
+            {
+                case "info":
+                {
+                    var dimAttr = interaction.Attribute("dimension");
+                    if (dimAttr is null)
+                    {
+                        await Console.Error.WriteLineAsync("Invalid Decision Matrix XML format.");
+                        return;
+                    }
+
+                    dim = dimAttr.Value;
+                    var altAttr = interaction.Attribute("alternative");
+                    if (altAttr is null)
+                    {
+                        await Console.Error.WriteLineAsync("Invalid Decision Matrix XML format.");
+                        return;
+                    }
+
+                    alt = altAttr.Value;
+                    var timestampAttr = interaction.Attribute("timestamp");
+                    if (timestampAttr is null)
+                    {
+                        await Console.Error.WriteLineAsync("Invalid Decision Matrix XML format.");
+                        return;
+                    }
+
+                    //timestamp = long.Parse(timestampAttr.Value);
+                    timestamp = (long)double.Parse(timestampAttr.Value);
+                    break;
+                }
+                case "choice":
+                {
+                    dim = "";
+                    var altAttr = interaction.Attribute("alternative");
+                    if (altAttr is null)
+                    {
+                        await Console.Error.WriteLineAsync("Invalid Decision Matrix XML format.");
+                        return;
+                    }
+
+                    alt = altAttr.Value;
+                    var timestampAttr = interaction.Attribute("timestamp");
+                    if (timestampAttr is null)
+                    {
+                        await Console.Error.WriteLineAsync("Invalid Decision Matrix XML format.");
+                        return;
+                    }
+                    
+                    //timestamp = long.Parse(timestampAttr.Value);
+                    timestamp = (long)double.Parse(timestampAttr.Value);
+                    var timestampObject = TimeSpan.FromMilliseconds(timestamp);
+                    
+                    FinalChoice = $@"{alt} at {timestampObject:mm\:ss\.ffff} seconds.";
+                    Decision[alternativesIndexLookup[alt]] = $"({index}) {timestamp}";
+                    break;
+                }
+                default:
+                    await Console.Error.WriteLineAsync("Invalid Decision Matrix XML format.");
+                    return;
+            }
+            
+            if(dim != "")
+            {
+                // Add data to trace matrix
+                var dimIndex = decisionFactorsIndexLookup[dim];
+                var altIndex = alternativesIndexLookup[alt];
+                attributeRank[dimIndex] += index;
+                var timestampObject = TimeSpan.FromMilliseconds(timestamp);
+                MatrixTrace[dimIndex, altIndex].Add($@"({index}) {timestampObject:mm\:ss\.ffff}");
+                Console.WriteLine($"Selected dimension [{DecisionFactors[dimIndex]}].");
+                decisionFactorsSelectionCounts[dimIndex] += 1;
+                totalDecisionFactorsSelectionCounts++;
+
+                Console.WriteLine($"Selected alternative [{Alternatives[altIndex]}].");
+                alternativesSelectionCounts[altIndex] += 1;
+                totalAlternativesSelectionCounts++;
+
+                // Accumulate counts of within-alternative moves and
+                // within-dimension moves for calculating search indices
+                if (dim == previousDecisionFactor && alt != previousAlternative)
+                {
+                    siDim++;
+                }
+                else if (alt == previousAlternative && dim != previousDecisionFactor)
+                {
+                    siAlt++;
+                }
+                else if (alt != previousAlternative && dim != previousDecisionFactor)
+                {
+                    siMix++;
+                }
+            }
+
+            previousDecisionFactor = dim;
+            previousAlternative = alt;
+        }
+
+        // Calculate the average attribute rank for each dimension
+        for (var i = 0; i < attributeRank.Length; i++)
+        {
+            var rank = attributeRank[i] / totalAlternativesSelectionCounts;
+            attributeRank[i] = rank;
+            Console.WriteLine($"Attribute rank of [{DecisionFactors[i]}] is {rank}.");
+        }
+        
+        // Final choice
+        // var finalChoiceText = "No final decision was made.";
+        // if (FinalChoice != "")
+        // {
+        //     finalChoiceText = $"{final_choice} at {final_choice_time} seconds.";
+        // }
+        
+        // Selection percentages - alternatives
+        for (var j = 0; j < Alternatives.Count; ++j)
+        {
+            Console.WriteLine($"{Alternatives[j]} = {alternativesSelectionCounts[j]} / {totalAlternativesSelectionCounts}");
+            AlternativesSelectionPercentages.Add($"{Alternatives[j]}: " +
+                                                 $"{Percent((double)alternativesSelectionCounts[j] / totalAlternativesSelectionCounts * 100)}%");
+        }
+        
+        // Selection percentages - dimensions
+        for (var i = 0; i < DecisionFactors.Count; ++i)
+        {
+            Console.WriteLine($"{DecisionFactors[i]} = {decisionFactorsSelectionCounts[i]} / {totalDecisionFactorsSelectionCounts}");
+            DecisionFactorsSelectionPercentages.Add($"{DecisionFactors[i]}: " +
+                                                     $"{Percent((double)decisionFactorsSelectionCounts[i] / totalDecisionFactorsSelectionCounts * 100)}%");
+        }
+        
+        // Holistic percentage
+        var totalBinsVisited = 0; // used for holistic search index
+        for (var row = 0; row < DecisionFactors.Count; row++)
+        {
+            for (var col = 0; col < Alternatives.Count; col++)
+            {
+                if (MatrixTrace[row, col].Count > 0)
+                {
+                    totalBinsVisited++;
+                }
+            }
+        }
+        Console.WriteLine($"Total unique bins visited is {totalBinsVisited}.");
+        
+        // Search index
+        var si = 1.0;
+        var siDenominator = siAlt + siDim;
+        if (siDenominator > 0)
+        {
+            si = Math.Floor((siAlt - siDim) / siDenominator * 100.0) / 100.0;
+        }
+        Console.WriteLine($"SI_alt = {siAlt}");
+        Console.WriteLine($"SI_dim = {siDim}");
+        
+        // Dimension search index
+        for (var i = 0; i < DecisionFactors.Count; i++)
+        {
+            Console.WriteLine($"Dimension {i}: {DecisionFactors[i]}");
+            // Calculate average of other dimensions
+            var totalOtherDimensions = 0;
+            for (var j = 0; j < DecisionFactors.Count; j++)
+            {
+                if (i == j)
+                {
+                    continue;
+                }
+                
+                totalOtherDimensions += decisionFactorsSelectionCounts[j];
+                Console.WriteLine($" -- {decisionFactorsSelectionCounts[j]}");
+            }
+            
+            var denom = (double)totalOtherDimensions / (DecisionFactors.Count - 1);
+            var dimensionSearchIndex = (double)Alternatives.Count;
+            if (denom != 0)
+            {
+                dimensionSearchIndex = decisionFactorsSelectionCounts[i] / denom;
+            }
+            DecisionFactorSearchIndices.Add($"{DecisionFactors[i]}: {Percent(dimensionSearchIndex)}");
+            Console.WriteLine($"{DecisionFactors[i]}: {decisionFactorsSelectionCounts[i]} / {denom} = {dimensionSearchIndex}");
+        }
+        
+        // Alternative search index
+        for (var j = 0; j < Alternatives.Count; j++)
+        {
+            Console.WriteLine($"Alternative {j}: {Alternatives[j]}");
+            // Calculate average of other alternatives
+            var totalOtherAlternatives = 0;
+            for (var i = 0; i < Alternatives.Count; i++)
+            {
+                if (j == i)
+                {
+                    continue;
+                }
+                
+                totalOtherAlternatives += alternativesSelectionCounts[i];
+                Console.WriteLine($" -- {alternativesSelectionCounts[i]}");
+            }
+            
+            var denom = (double)totalOtherAlternatives / (Alternatives.Count - 1);
+            var alternativeSearchIndex = (double)DecisionFactors.Count;
+            if (denom != 0)
+            {
+                alternativeSearchIndex = alternativesSelectionCounts[j] / denom;
+            }
+            AlternativeSearchIndices.Add($"{Alternatives[j]}: {Percent(alternativeSearchIndex)}");
+            Console.WriteLine($"{Alternatives[j]}: {alternativesSelectionCounts[j]} / {denom} = {alternativeSearchIndex}");
+        }
+        
+        // Determine plausible decision strategies *** Skip for now ***
+        
+        // Analysis of completeness
+        Console.WriteLine($"Total bins visited = {totalBinsVisited}");
+        var coverage = totalBinsVisited / (DecisionFactors.Count * Alternatives.Count);
+        CompletenessAnalysis = $"Selection procedure {Percent(coverage * 100.0)}% holistic.";
+        
+        SearchIndex = $"The search index is {si}.";
+        DataLoaded = true;
+    }
+    
+    private static double Percent(double number)
+    {
+        return Math.Floor(number * 100.0) / 100.0;
+    }
+}
