@@ -1,0 +1,36 @@
+﻿@using Client.JSWrappers
+@inject EventAdder EventAdder
+
+<video id="video" controls preload="metadata" width="@Width" height="@Height">
+    <source src="@VideoSource"/>
+</video>
+
+@code {
+    [Parameter] public required string VideoSource { get; set; }
+    [Parameter] public string Width { get; set; } = "400px";
+    [Parameter] public string Height { get; set; } = "262px";
+    [Parameter] public Action? OnPlay { get; set; }
+    [Parameter] public Action? OnPause { get; set; }
+    
+    protected override Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            return EventAdder.AddAudioEvents(DotNetObjectReference.Create(this), "video", "OnVideoPlayed", "OnVideoPause");
+        }
+
+        return Task.CompletedTask;
+    }
+    
+    [JSInvokable("OnVideoPlayed")]
+    public void OnVideoPlayed()
+    {
+        OnPlay?.Invoke();
+    }
+
+    [JSInvokable("OnVideoPause")]
+    public void OnVideoPause()
+    {
+        OnPause?.Invoke();
+    }
+}

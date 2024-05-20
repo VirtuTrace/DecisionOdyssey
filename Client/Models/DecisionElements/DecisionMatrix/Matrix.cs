@@ -11,7 +11,7 @@ public class Matrix : DecisionElement
     public List<List<MatrixCell>> Data { get; } = [];
     public MatrixFeatures Features { get; set; }
     public int AllottedTime { get; set; } = -1;
-    public MatrixCell Prompt { get; set; }
+    public MatrixCell Prompt { get; set; } = new();
     
     public int RowCount => RowNames.Count;
     public int ColumnCount => ColumnNames.Count;
@@ -154,5 +154,18 @@ public class Matrix : DecisionElement
         {
             row.RemoveAt(removeIndex);
         }
+    }
+
+    public void FromMetadata(DecisionMatrixMetadata metadata)
+    {
+        Name = metadata.Name;
+        Guid = metadata.Guid;
+        CreationTime = metadata.CreationTime;
+        Features = metadata.Features;
+        RowNames.Clear();
+        RowNames.AddRange(metadata.RowNames);
+        ColumnNames.Clear();
+        ColumnNames.AddRange(metadata.ColumnNames);
+        AllottedTime = metadata.AllottedTime;
     }
 }

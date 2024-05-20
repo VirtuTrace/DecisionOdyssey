@@ -1,0 +1,139 @@
+﻿@using Client.JSWrappers
+@using Client.Models.DecisionElements.DecisionMatrix
+@using Client.Models.DecisionElements.DecisionMatrix.Stats
+@using Client.Utility
+
+@inject BlobCreator BlobCreator
+
+<MudDialog>
+    <DialogContent>
+        <MudGrid>
+            @if (MatrixCell.Contains(MatrixDataType.Video))
+            {
+                <MudItem xs="12">
+                    <VideoElement VideoSource="@Cache.VideoBlobUrl" OnPlay="@TrackVideoPlayed" OnPause="@TrackVideoPaused" />
+                </MudItem>
+            }
+            else
+            {
+                @if (MatrixCell.Contains(MatrixDataType.Image))
+                {
+                    <MudItem xs="12">
+                        <img src="@Cache.ImageBlobUrl" alt="Image" width="400px" height="262px"/>
+                    </MudItem>
+                }
+                @if (MatrixCell.Contains(MatrixDataType.Audio))
+                {
+                    <MudItem xs="12">
+                        <AudioElement AudioSource="@Cache.AudioBlobUrl" OnPlay="@TrackAudioPlayed" OnPause="@TrackAudioPaused" />
+                    </MudItem>
+                }
+            }
+            @if (MatrixCell.Contains(MatrixDataType.Text))
+            {
+                <MudItem xs="12">
+                    <MudContainer Style="max-height: 300px; overflow-y: scroll">
+                        <MudText Style="white-space: pre-wrap;">@MatrixCell.Text</MudText>
+                    </MudContainer>
+                </MudItem>
+            }
+            @if (AllowRating)
+            {
+                <MudText>
+                    Use the slider to present your evaluation on a scale of negative 10 to positive 10 of how positive or 
+                    negative is the @AlternativeTitle implication on the @DimensionTitle.
+                </MudText>
+                <MudItem xs="12">
+                    <MudSlider @bind-Value="@_rating" Min="-10" Max="10" Color="Color.Info">Rating: @_rating.ToString()</MudSlider>
+                </MudItem>
+            }
+        </MudGrid>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Primary" OnClick="@Submit">Ok</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+
+    [CascadingParameter] public MudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter] public required MatrixCell MatrixCell { get; set; }
+    [Parameter] public required MatrixCellBlobCache Cache { get; set; }
+    [Parameter] public MatrixStatsCell? MatrixStatsCell { get; set; }
+    [Parameter] public bool AllowRating { get; set; }
+    [Parameter] public required string AlternativeTitle { get; set; }
+    [Parameter] public required string DimensionTitle { get; set; }
+
+    private int _rating;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (MatrixCell.Contains(MatrixDataType.Image))
+        {
+            await GenerateBlobUrl(MatrixDataType.Image);
+        }
+        if (MatrixCell.Contains(MatrixDataType.Audio))
+        {
+            await GenerateBlobUrl(MatrixDataType.Audio);
+        }
+        if (MatrixCell.Contains(MatrixDataType.Video))
+        {
+            await GenerateBlobUrl(MatrixDataType.Video);
+        }
+        
+        if (MatrixStatsCell is null)
+        {
+            return;
+        }
+
+        _rating = MatrixStatsCell.Rating;
+        StateHasChanged();
+    }
+
+    private void Submit() => MudDialog.Close(DialogResult.Ok(_rating));
+
+    private void TrackAudioPlayed()
+    {
+        MatrixStatsCell?.AudioTracking?.RecordStartInteraction();
+    }
+    
+    private void TrackAudioPaused()
+    {
+        MatrixStatsCell?.AudioTracking?.RecordEndInteraction();
+    }
+    
+    private void TrackVideoPlayed()
+    {
+        MatrixStatsCell?.VideoTracking?.RecordStartInteraction();
+    }
+    
+    private void TrackVideoPaused()
+    {
+        MatrixStatsCell?.VideoTracking?.RecordEndInteraction();
+    }
+
+    private async Task GenerateBlobUrl(MatrixDataType type)
+    {
+        switch (type)
+        {
+            case MatrixDataType.Image:
+                var image = MatrixCell.Image;
+                Cache.ImageBlobUrl ??= await BlobCreator.CreateBlobUrl(image.Data!, $"image/{image.Extension.RemoveChar('.')}");
+                return;
+            case MatrixDataType.Audio:
+                var audio = MatrixCell.Audio;
+                Cache.AudioBlobUrl ??= await BlobCreator.CreateBlobUrl(audio.Data!, $"audio/{audio.Extension.RemoveChar('.')}");
+                return;
+            case MatrixDataType.Video:
+                var video = MatrixCell.Video;
+                Cache.VideoBlobUrl ??= await BlobCreator.CreateBlobUrl(video.Data!, $"video/{video.Extension.RemoveChar('.')}");
+                return;
+            case MatrixDataType.None:
+            case MatrixDataType.Text:
+                throw new Exception("Not a blob type");
+            default:
+                throw new ArgumentOutOfRangeException(nameof(type), type, null);
+        }
+    }
+}

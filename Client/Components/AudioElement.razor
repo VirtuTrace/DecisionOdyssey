@@ -1,0 +1,32 @@
+﻿@using Client.JSWrappers
+@inject EventAdder EventAdder
+
+<audio id="audio" controls autoplay preload="metadata">
+    <source src="@AudioSource"/>
+</audio>
+
+@code {
+    [Parameter] public required string AudioSource { get; set; }
+    [Parameter] public Action? OnPlay { get; set; }
+    [Parameter] public Action? OnPause { get; set; }
+    
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await EventAdder.AddAudioEvents(DotNetObjectReference.Create(this), "audio", "OnAudioPlay", "OnAudioPause");
+        }
+    }
+    
+    [JSInvokable("OnAudioPlay")]
+    public void OnAudioPlay()
+    {
+        OnPlay?.Invoke();
+    }
+
+    [JSInvokable("OnAudioPause")]
+    public void OnAudioPause()
+    {
+        OnPause?.Invoke();
+    }
+}

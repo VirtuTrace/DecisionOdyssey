@@ -1,6 +1,644 @@
-﻿@page "/MatrixEditor"
-<h3>MatrixEditor</h3>
+﻿@page "/editor/matrix"
+
+@using System.Net.Http.Headers
+@using Client.Components.Dialogs
+@using Client.JSWrappers
+@using Client.Models.DecisionElements.DecisionMatrix
+@using Client.Singletons
+@using Client.Utility
+@using Common.DataStructures.Dtos.DecisionElements
+@using Common.Enums
+@using DocumentFormat.OpenXml
+@using DocumentFormat.OpenXml.Packaging
+@using DocumentFormat.OpenXml.Spreadsheet
+@using Color = MudBlazor.Color
+@using Row = DocumentFormat.OpenXml.Spreadsheet.Row
+@using Client.Components
+
+@inherits Client.Pages.Base.AuthenticatedPage
+
+@inject IDialogService DialogService
+@inject HttpClient Http
+@inject ApplicationState ApplicationState
+@inject ISnackbar Snackbar
+@inject HttpUtility HttpUtility
+@inject BlobCreator BlobCreator
+@inject NavigationManager NavigationManager
+
+<PageTitle>Editor</PageTitle>
+
+<h1>Editor</h1>
+
+@if (Matrix is null)
+{
+    <h3>Select Matrix to Edit</h3>
+    <MudSelect T="DecisionMatrixDto" @bind-Value="@SelectedMatrix" ToStringFunc="@_converter" Label="Matrices" Variant="Variant.Outlined" AnchorOrigin="Origin.BottomCenter">
+        @foreach (var matrix in Matrices)
+        {
+            <MudSelectItem Value="@matrix" />
+        }
+    </MudSelect>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@SelectMatrix">Select</MudButton>
+}
+else
+{
+    <MudSimpleTable Breakpoint="Breakpoint.Sm">
+        <thead>
+        <tr>
+            <th style="border-right: 1px solid #cdd0d4;">
+                <MudTextField @bind-Value="Matrix.Name" Label="Title" Variant="Variant.Text"/>
+            </th>
+            @for (var col = 0; col < Matrix.ColumnNames.Count; col++)
+            {
+            var localCol = col;
+            <th>
+                <MudTextField @bind-Value="Matrix.ColumnNames[localCol]" Label="Alternative" Variant="@Variant.Text"/>
+            </th>
+            }
+            <th style="border-left: 1px solid #cdd0d4;"></th>
+        </tr>
+        </thead>
+        <tbody>
+        @for (var row = 0; row < Matrix.RowCount; row++)
+        {
+        var localRow = row;
+        <tr>
+            <th style="border-right: 1px solid #cdd0d4;">
+                <MudTextField @bind-Value="Matrix.RowNames[localRow]" Label="Decision Factor" Variant="Variant.Text"/>
+            </th>
+            @for (var col = 0; col < Matrix.ColumnCount; col++)
+            {
+            var localCol = col;
+            <td style="text-align: center; vertical-align: middle;">
+                @if (Matrix[localRow, localCol].IsEmpty())
+                {
+                <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Add" Color="Color.Primary" OnClick="@(() => OpenCellEditDialog(localRow, localCol))">Add</MudButton>
+                }
+                else
+                {
+                <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Edit" Color="Color.Primary" OnClick="@(() => OpenCellEditDialog(localRow, localCol))">Edit</MudButton>
+                }
+            </td>
+            }
+            @if (localRow == 0)
+            {
+            <td rowspan="@(Matrix.RowCount)" style="border-left: 1px solid #cdd0d4; text-align: center; vertical-align: middle;">
+                <MudGrid Spacing="2" Justify="Justify.Center">
+                    <MudItem xs="12">
+                        <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Outlined.Add"
+                                   Color="Color.Primary" OnClick="@AddColumn">Add Alternative</MudButton>
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Outlined.Remove"
+                                   Color="Color.Secondary" OnClick="@RemoveColumn">Remove Alternative</MudButton>
+                    </MudItem>
+                </MudGrid>
+            </td>
+            }
+        </tr>
+        }
+        <tr>
+            <td style="border-right: 1px solid #cdd0d4;"></td>
+            <td colspan="@(Matrix.ColumnCount)" style="text-align: center; vertical-align: middle;">
+                <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Outlined.Add" Color="Color.Primary"
+                           OnClick="@AddRow">Add Decision Factor</MudButton>
+                <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Outlined.Remove" Color="Color.Secondary"
+                           OnClick="@RemoveRow">Remove Decision Factor</MudButton>
+            </td>
+            <td style="border-left: 1px solid #cdd0d4;"></td>
+        </tr>
+        </tbody>
+    </MudSimpleTable>
+    <div class="pa-7"></div>
+    <MudSimpleTable Elevation="0">
+        <thead>
+        <tr>
+            <th style="text-align: center;">Matrix Features</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+            <td style="text-align: start;">
+                <MudGrid Justify="Justify.FlexStart">
+                    <MudItem xs="6">
+                        <FlagCheckbox @bind-Flag="Matrix.Features" Color="Color.Primary" FlagValue="MatrixFeatures.Timer"
+                                      Label="Enable Time Limit"/>
+                    </MudItem>
+                    <MudItem xs="6">
+                        @if (Matrix.Features.HasFlag(MatrixFeatures.Timer))
+                        {
+                            <TimePicker Label="Allotted Time (h:m:s)" @bind-Time="_time"/>
+                        }
+                        else
+                        {
+                            <MudSpacer />
+                        }
+                    </MudItem>
+                    <MudItem xs="6">
+                        <FlagCheckbox Flag="Matrix.Features" Color="Color.Primary" FlagValue="MatrixFeatures.Prompt"
+                                      FlagChanged="UpdatePromptExistence" Label="Enable Decision Scenario"/>
+                    </MudItem>
+                    <MudItem xs="6">
+                        @if (Matrix.Features.HasFlag(MatrixFeatures.Prompt))
+                        {
+                            <MudButton Variant="Variant.Filled" Color="Color.Tertiary"
+                                       OnClick="OpenPromptEditDialogue">Edit Decision Scenario</MudButton>
+                        }
+                        else
+                        {
+                            <MudSpacer />
+                        }
+                    </MudItem>
+                    <MudItem xs="6">
+                        <FlagCheckbox @bind-Flag="Matrix.Features" Color="@Color.Primary"
+                                      FlagValue="MatrixFeatures.RowRating" Label="Enable Decision Factor Rating"/>
+                    </MudItem>
+                    <MudItem xs="6">
+                        <MudSpacer />
+                    </MudItem>
+                    <MudItem xs="6">
+                        <FlagCheckbox @bind-Flag="Matrix.Features" Color="@Color.Primary"
+                                      FlagValue="MatrixFeatures.ColumnRating" Label="Enable Bin Rating"/>
+                    </MudItem>
+                    <MudItem xs="6">
+                        <MudSpacer />
+                    </MudItem>
+                    <MudItem xs="6">
+                        <FlagCheckbox @bind-Flag="Matrix.Features" Color="@Color.Primary"
+                                      FlagValue="MatrixFeatures.RowRandomization" Label="Enable Decision Factor Randomization"/>
+                    </MudItem>
+                    <MudItem xs="6">
+                        <MudSpacer />
+                    </MudItem>
+                    <MudItem xs="6">
+                        <FlagCheckbox @bind-Flag="Matrix.Features" Color="@Color.Primary"
+                                      FlagValue="MatrixFeatures.ColumnRandomization" Label="Enable Alternative Randomization"/>
+                    </MudItem>
+                    <MudItem xs="6">
+                        <MudSpacer />
+                    </MudItem>
+                </MudGrid>
+            </td>
+        </tr>
+        </tbody>
+    </MudSimpleTable>
+    <MudFileUpload T="IBrowserFile" FilesChanged="CreateMatrixFromTemplate">
+        <ButtonTemplate>
+            <MudButton HtmlTag="label"
+                       Variant="Variant.Outlined"
+                       Color="Color.Primary"
+                       for="@context.Id">
+                Create From Template
+            </MudButton>
+        </ButtonTemplate>
+    </MudFileUpload>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveMatrix">Save</MudButton>
+    <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="ResetMatrix">Reset</MudButton>
+    <MudButton Variant="Variant.Filled" Color="Color.Tertiary" OnClick="ShareMatrix" Disabled="@(!EditingExistingMatrix)">Share</MudButton>
+}
 
 @code {
+    private const string CreateMatrix = "Create new matrix";
+    private List<DecisionMatrixDto> Matrices { get; } = [];
+    private List<List<MatrixCellBlobCache>> CellCache { get; } = []; 
+    private DecisionMatrixDto? SelectedMatrix { get; set; }
+    private Matrix? Matrix { get; set; }
+    private TimeSpan? _time = new TimeSpan(01, 00, 00);
+    private bool EditingExistingMatrix { get; set; }
+    private Guid MatrixGuid { get; set; }
+    private readonly Func<DecisionMatrixDto, string> _converter = dm => dm.Name;
     
+    protected override async Task<bool> OnInitializedAsync()
+    {
+        var loggedIn = await base.OnInitializedAsync();
+        if (!loggedIn)
+        {
+            return false;
+        }
+        
+        var matrices = await HttpUtility.GetMatrices(Http);
+        Matrices.Clear();
+        Matrices.Add(new DecisionMatrixDto
+        {
+            Name = CreateMatrix,
+            UserEmail = ""
+        });
+        Matrices.AddRange(matrices);
+        StateHasChanged();
+        return true;
+    }
+
+    private async Task SelectMatrix()
+    {
+        if (SelectedMatrix is null)
+        {
+            return;
+        }
+
+        if (SelectedMatrix.Name == CreateMatrix)
+        {
+            Matrix = new Matrix();
+            Matrix.AddColumn();
+            Matrix.AddRow();
+            CellCache.Add([new MatrixCellBlobCache()]);
+            EditingExistingMatrix = false;
+            MatrixGuid = Guid.NewGuid();
+        }
+        else
+        {
+            var matrix = await HttpUtility.GetMatrix(Http, SelectedMatrix.Guid);
+            Matrix = matrix;
+            CellCache.Initialize(Matrix.RowCount, Matrix.ColumnCount);
+            _time = TimeSpan.FromSeconds(Matrix.AllottedTime);
+            EditingExistingMatrix = true;
+            MatrixGuid = SelectedMatrix.Guid;
+        }
+    }
+
+    private void UpdatePromptExistence()
+    {
+        // TODO: Remove
+    }
+
+    private async Task OpenCellEditDialog(int row, int col)
+    {
+        var options = new DialogOptions { MaxWidth = MaxWidth.Medium, CloseOnEscapeKey = true };
+        var parameters = new DialogParameters
+        {
+            ["MatrixCell"] = Matrix![row, col],
+            ["Cache"] = CellCache[row][col]
+        };
+        var dialog = await DialogService.ShowAsync<EditorMatrixDialog>("Edit Matrix Cell", parameters: parameters, options: options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            StateHasChanged();
+        }
+    }
+
+    private async Task OpenPromptEditDialogue()
+    {
+        var options = new DialogOptions { MaxWidth = MaxWidth.Medium, CloseOnEscapeKey = true };
+        var parameters = new DialogParameters { ["MatrixCell"] = Matrix!.Prompt };
+        var dialog = await DialogService.ShowAsync<EditorMatrixDialog>("Edit Decision Scenario", parameters: parameters, options: options);
+        await dialog.Result;
+    }
+    
+    private void AddRow()
+    {
+        Matrix!.AddRow();
+        List<MatrixCellBlobCache> cacheRow = [];
+        for(var col = 0; col < Matrix.ColumnCount; col++)
+        {
+            cacheRow.Add(new MatrixCellBlobCache());
+        }
+        CellCache.Add(cacheRow);
+        StateHasChanged();
+    }
+
+    private void AddColumn()
+    {
+        Matrix!.AddColumn();
+        for(var row = 0; row < Matrix.RowCount; row++)
+        {
+            CellCache[row].Add(new MatrixCellBlobCache());
+        }
+        StateHasChanged();
+    }
+
+    private async void RemoveRow()
+    {
+        if (Matrix!.RowCount == 1)
+        {
+            return;
+        }
+
+        for (var col = 0; col < Matrix.ColumnCount; col++)
+        {
+            await CellCache[Matrix.RowCount - 1][col].RevokeUrls(BlobCreator);
+        }
+        CellCache.RemoveAt(Matrix.RowCount - 1);
+        Matrix.RemoveRow();
+        StateHasChanged();
+    }
+
+    private async void RemoveColumn()
+    {
+        if (Matrix!.ColumnCount == 1)
+        {
+            return;
+        }
+        
+        for(var row = 0; row < Matrix.RowCount; row++)
+        {
+            var cacheRow = CellCache[row];
+            var cacheCell = cacheRow[Matrix.ColumnCount - 1];
+            await cacheCell.RevokeUrls(BlobCreator);
+            cacheRow.RemoveAt(Matrix.ColumnCount - 1);
+        }
+        Matrix.RemoveColumn();
+        StateHasChanged();
+    }
+
+    private async void ShareMatrix()
+    {
+        var features = Matrix!.Features;
+        string matrixUrl;
+        if (features.HasFlag(MatrixFeatures.Prompt))
+        {
+            matrixUrl = NavigationManager.BaseUri + "viewer/prompt/" + Matrix.Guid;
+        }
+        else if (features.HasFlag(MatrixFeatures.RowRating))
+        {
+            matrixUrl = NavigationManager.BaseUri + "viewer/rating/" + Matrix.Guid;
+        }
+        else
+        {
+            matrixUrl = NavigationManager.BaseUri + "viewer/interact/" + Matrix.Guid;
+        }
+        var options = new DialogOptions { MaxWidth = MaxWidth.Medium, CloseOnEscapeKey = true };
+        var parameters = new DialogParameters { ["UrlToCopy"] = matrixUrl };
+        var dialog = await DialogService.ShowAsync<CopyUrlDialog>("Share Matrix", parameters: parameters, options: options);
+        await dialog.Result;
+    }
+    
+    
+    private async Task ResetMatrix()
+    {
+        var options = new DialogOptions
+        {
+            MaxWidth = MaxWidth.Medium, CloseOnEscapeKey = true
+        };
+        const string text = "Are you sure you you want to clear the current matrix?";
+        var parameters = new DialogParameters { ["DialogText"] = text };
+        var dialog = await DialogService.ShowAsync<ConfirmationDialog>("Confirm Selection", parameters: parameters, options: options);
+        var result = await dialog.Result;
+        if (!result.Canceled)
+        {
+            Matrix!.Reset();
+        }
+    }
+
+    private async void SaveMatrix()
+    {
+        if (!MatrixValid())
+        {
+            return;
+        }
+
+        if (Matrix!.Features.HasFlag(MatrixFeatures.Timer))
+        {
+            Matrix.AllottedTime = _time!.Value.ToSeconds();
+        }
+
+        var (jsonContent, archive) = Matrix.Archive();
+        var (fc, ms) = HttpUtility.CreateMultiPartContent(archive, jsonContent, Matrix.Name);
+        using var formContent = fc;
+        using var memoryStream = ms;
+
+        Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ApplicationState.AccessToken);
+
+        HttpResponseMessage response;
+        if (EditingExistingMatrix)
+        {
+            response = await Http.PutAsync($"api/DecisionMatrix/{MatrixGuid}", formContent);
+        }
+        else
+        {
+            response = await Http.PostAsync("api/DecisionMatrix", formContent);
+        }
+
+        if (response.IsSuccessStatusCode)
+        {
+            var message = await response.Content.ReadAsStringAsync();
+            Snackbar.Add(message, Severity.Success);
+        }
+        else
+        {
+            var message = response.ReasonPhrase ?? $"Error: {response.StatusCode}";
+            Snackbar.Add(message, Severity.Error);
+        }
+    }
+
+    private bool MatrixValid()
+    {
+        if (Matrix!.Name == "")
+        {
+            Snackbar.Add("Matrix must have a title", Severity.Error);
+            return false;
+        }
+
+        if (Matrix.ColumnNames.Any(col => col == ""))
+        {
+            Snackbar.Add("Columns must have a column name", Severity.Error);
+            return false;
+        }
+
+        if (Matrix.RowNames.Any(row => row == ""))
+        {
+            Snackbar.Add("Rows must have a row name", Severity.Error);
+            return false;
+        }
+
+        if (Matrix.Data.Any(row => row.Any(cell => cell.IsEmpty())))
+        {
+            Snackbar.Add("Cells cannot be empty", Severity.Error);
+            return false;
+        }
+
+        if (Matrix.Prompt.IsEmpty())
+        {
+            Snackbar.Add("Prompt cannot be empty", Severity.Error);
+            return false;
+        }
+
+        return true;
+    }
+
+    private void CreateMatrixFromTemplate(IBrowserFile? file)
+    {
+        if (file is null)
+        {
+            return;
+        }
+
+        if(file.ContentType != "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        {
+            Snackbar.Add("Invalid file type. Must be an Excel file", Severity.Error);
+            return;
+        }
+        
+        var stream = file.OpenReadStream();
+        var spreadsheet = SpreadsheetDocument.Open(stream, false);
+        var workbookPart = spreadsheet.WorkbookPart;
+        if (workbookPart is null)
+        {
+            Snackbar.Add("Invalid Excel file", Severity.Error);
+            return;
+        }
+        
+        var worksheetPart = workbookPart.WorksheetParts.FirstOrDefault();
+        if (worksheetPart is null)
+        {
+            Snackbar.Add("Invalid Excel file", Severity.Error);
+            return;
+        }
+
+        var title = "";
+        int numRows;
+        var numCols = 0;
+        string[] rowNames = [];
+        string[] colNames = [];
+        var textData = new string[0, 0];
+        var rowIndex = 0;
+        var readerState = ReaderState.ReadingTitle;
+        var reader = OpenXmlReader.Create(worksheetPart);
+        while (reader.Read())
+        {
+            if (reader.ElementType != typeof(Row))
+            {
+                continue;
+            }
+
+            var row = (Row)reader.LoadCurrentElement()!;
+            switch (readerState)
+            {
+                case ReaderState.ReadingTitle:
+                    title = ReadTitle(row);
+                    readerState = ReaderState.ReadingNumRows;
+                    break;
+                case ReaderState.ReadingNumRows:
+                    numRows = ReadDimension(row);
+                    rowNames = new string[numRows];
+                    readerState = ReaderState.ReadingNumCols;
+                    break;
+                case ReaderState.ReadingNumCols:
+                    numCols = ReadDimension(row);
+                    readerState = ReaderState.Skip;
+                    break;
+                case ReaderState.Skip:
+                    readerState = ReaderState.ReadingColNames;
+                    break;
+                case ReaderState.ReadingColNames:
+                    colNames = ReadColNames(row, numCols);
+                    readerState = ReaderState.ReadingRowNamesAndData;
+                    break;
+                case ReaderState.ReadingRowNamesAndData:
+                    ReadRowNameAndData(row, rowIndex, rowNames, textData);
+                    rowIndex++;
+                    break;
+                case ReaderState.None:
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+        }
+        Matrix!.Reset();
+        Matrix!.Name = title;
+        foreach (var (i, name) in colNames.Enumerate())
+        {
+            if (i == 0)
+            {
+                Matrix!.ColumnNames[0] = name;
+            }
+            else
+            {
+                Matrix!.AddColumn();
+                Matrix!.ColumnNames[i] = name;
+            }
+        }
+        
+        foreach (var (i, name) in rowNames.Enumerate())
+        {
+            if (i == 0)
+            {
+                Matrix!.RowNames[0] = name;
+            }
+            else
+            {
+                Matrix!.AddRow();
+                Matrix!.RowNames[i] = name;
+            }
+        }
+
+        for (var row = 0; row < Matrix.RowCount; row++)
+        {
+            for (var col = 0; col < Matrix.ColumnCount; col++)
+            {
+                Matrix[row, col].Text = textData[row, col];
+            }
+        }
+    }
+
+    private static string ReadTitle(Row row)
+    {
+        foreach (var cell in row.Descendants<Cell>())
+        {
+            if (cell.CellReference != "B1")
+            {
+                continue;
+            }
+            
+            return cell.InnerText;
+        }
+        
+        throw new Exception("Matrix title not found");
+    }
+
+    private static int ReadDimension(Row row)
+    {
+        foreach (var cell in row.Descendants<Cell>())
+        {
+            if (cell.CellReference != "B1")
+            {
+                continue;
+            }
+            
+            return Convert.ToInt32(cell.InnerText);
+        }
+        
+        throw new Exception("Matrix dimension not found");
+    }
+    
+    private static string[] ReadColNames(Row row, int numCols)
+    {
+        var colNames = new string[numCols];
+        var index = 0;
+        foreach (var cell in row.Descendants<Cell>())
+        {
+            colNames[index] = cell.InnerText;
+            index++;
+        }
+
+        return colNames;
+    }
+
+    private static void ReadRowNameAndData(Row row, int rowIndex, string[] rowNames, string[,] data)
+    {
+        var index = 0;
+        foreach (var cell in row.Descendants<Cell>())
+        {
+            if (index == 0)
+            {
+                rowNames[rowIndex] = cell.InnerText;
+            }
+            else
+            {
+                data[rowIndex, index - 1] = cell.InnerText;
+            }
+
+            index++;
+        }
+    }
+
+    internal enum ReaderState
+    {
+        None,
+        ReadingTitle,
+        ReadingNumRows,
+        ReadingNumCols,
+        Skip,
+        ReadingColNames,
+        ReadingRowNamesAndData,
+    }
 }

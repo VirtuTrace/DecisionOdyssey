@@ -1,0 +1,22 @@
+﻿@using Client.Singletons
+
+@inherits ComponentBase
+
+@inject NavigationManager NavManager
+@inject ApplicationState ApplicationState
+
+@code {
+    protected virtual string RedirectUrl => "/login";
+    
+    protected override Task<bool> OnInitializedAsync()
+    {
+        if (ApplicationState.LoggedIn)
+        {
+            return Task.FromResult(true);
+        }
+
+        NavManager.NavigateTo(RedirectUrl);
+        return Task.FromResult(false);
+
+    }
+}

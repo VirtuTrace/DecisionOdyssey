@@ -1,0 +1,32 @@
+﻿@inject IJSRuntime JsRuntime
+
+<MudDialog>
+    <DialogContent>
+        <MudPaper Class="d-flex pa-4" Elevation="0">
+            <MudTextField @bind-Value="@UrlToCopy" Label="Url" Variant="Variant.Outlined" ReadOnly="true"/>
+            <MudTooltip ShowOnClick="true" ShowOnFocus="false" ShowOnHover="false" Text="Copied!">
+                <MudIconButton Icon="@Icons.Material.Outlined.ContentCopy" aria-label="copy" OnClick="@CopyToClipboard"/>
+            </MudTooltip>
+        </MudPaper>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" OnClick="@Submit">Ok</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    public MudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter]
+    public string UrlToCopy { get; set; } = null!;
+
+    private void CopyToClipboard()
+    {
+        JsRuntime.InvokeVoidAsync("navigator.clipboard.writeText", UrlToCopy);
+    }
+
+    private void Submit() => MudDialog.Close(DialogResult.Ok(true));
+    private void Cancel() => MudDialog.Cancel();
+}
