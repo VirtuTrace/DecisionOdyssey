@@ -1,5 +1,6 @@
 ﻿using System.Text.Json;
 using AutoMapper;
+using Client.Models.DecisionElements.DecisionMatrix;
 using Common.DataStructures.Dtos.DecisionElements;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -16,7 +17,7 @@ namespace Server.Controllers;
 [ApiController]
 public class DecisionMatrixController(
     ApplicationDbContext context,
-    ILogger logger,
+    ILogger<DecisionMatrixController> logger,
     UserManager<User> userManager,
     IMapper mapper)
     : DecisionElementController<DecisionMatrixDto>(context, logger, userManager, mapper)
@@ -26,6 +27,17 @@ public class DecisionMatrixController(
     private readonly ILogger _logger = logger;
 
     protected override string DecisionElementDirectoryName => "Matrices";
+
+    protected override async Task<List<DecisionMatrixDto>> GetDecisionElements(User user)
+    {
+        await _context.Entry(user).Collection(u => u.CreatedDecisionMatrices).LoadAsync();
+        await _context.Entry(user).Collection(u => u.AccessibleDecisionMatrices).LoadAsync();
+        var decisionMatrices = user.CreatedDecisionMatrices.Concat(user.AccessibleDecisionMatrices);
+        var decisionMatrixDtos = _mapper.Map<List<DecisionMatrixDto>>(decisionMatrices);
+        
+        _logger.LogInformation("Returning {numberDecisionMatrices} decision matrices for user {userId}", decisionMatrixDtos.Count, user.Id);
+        return decisionMatrixDtos;
+    }
 
     protected override async Task<List<DecisionMatrixDto>> GetCreatedDecisionElements(User user)
     {
@@ -96,7 +108,7 @@ public class DecisionMatrixController(
 
     protected override async Task<ActionResult<DecisionMatrixDto>> PostDecisionElement(string metadata, IFormFile file, User user)
     {
-        var decisionMatrixDto = JsonSerializer.Deserialize<DecisionMatrixDto>(metadata);
+        var decisionMatrixDto = JsonSerializer.Deserialize<DecisionMatrixMetadata>(metadata);
         if (decisionMatrixDto is null)
         {
             _logger.LogInformation("Failed to deserialize decision matrix metadata");
@@ -141,7 +153,7 @@ public class DecisionMatrixController(
 
     protected override async Task<ActionResult<DecisionMatrixDto>> PutDecisionElement(Guid guid, string metadata, IFormFile file, User user)
     {
-        var decisionMatrixDto = JsonSerializer.Deserialize<DecisionMatrixDto>(metadata);
+        var decisionMatrixDto = JsonSerializer.Deserialize<DecisionMatrixMetadata>(metadata);
         if (decisionMatrixDto is null)
         {
             _logger.LogInformation("Failed to deserialize decision matrix metadata");

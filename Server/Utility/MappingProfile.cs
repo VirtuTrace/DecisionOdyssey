@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using Client.Models.DecisionElements.DecisionMatrix;
 using Common.DataStructures.Dtos;
 using Common.DataStructures.Dtos.DecisionElements;
 using Common.DataStructures.Dtos.DecisionElements.Stats;
@@ -25,6 +26,8 @@ public class MappingProfile : Profile
                 opt => opt.MapFrom(src => src.User.Email));
 
         CreateMap<DecisionMatrixDto, DecisionMatrix>();
+
+        CreateMap<DecisionMatrixMetadata, DecisionMatrix>();
 
         #endregion
         

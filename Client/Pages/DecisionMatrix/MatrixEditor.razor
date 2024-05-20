@@ -13,6 +13,7 @@
 @using DocumentFormat.OpenXml.Spreadsheet
 @using Color = MudBlazor.Color
 @using Row = DocumentFormat.OpenXml.Spreadsheet.Row
+@using Common.DataStructures.Http.Responses
 @using Client.Components
 
 @inherits Client.Pages.Base.AuthenticatedPage
@@ -135,19 +136,12 @@ else
                         }
                     </MudItem>
                     <MudItem xs="6">
-                        <FlagCheckbox Flag="Matrix.Features" Color="Color.Primary" FlagValue="MatrixFeatures.Prompt"
-                                      FlagChanged="UpdatePromptExistence" Label="Enable Decision Scenario"/>
+                        @* <FlagCheckbox Flag="Matrix.Features" Color="Color.Primary" FlagValue="MatrixFeatures.Prompt" *@
+                        @*               FlagChanged="UpdatePromptExistence" Label="Enable Decision Scenario"/> *@
                     </MudItem>
                     <MudItem xs="6">
-                        @if (Matrix.Features.HasFlag(MatrixFeatures.Prompt))
-                        {
-                            <MudButton Variant="Variant.Filled" Color="Color.Tertiary"
-                                       OnClick="OpenPromptEditDialogue">Edit Decision Scenario</MudButton>
-                        }
-                        else
-                        {
-                            <MudSpacer />
-                        }
+                        <MudButton Variant="Variant.Filled" Color="Color.Tertiary"
+                                   OnClick="OpenPromptEditDialogue">Edit Decision Scenario</MudButton>
                     </MudItem>
                     <MudItem xs="6">
                         <FlagCheckbox @bind-Flag="Matrix.Features" Color="@Color.Primary"
@@ -343,20 +337,7 @@ else
 
     private async void ShareMatrix()
     {
-        var features = Matrix!.Features;
-        string matrixUrl;
-        if (features.HasFlag(MatrixFeatures.Prompt))
-        {
-            matrixUrl = NavigationManager.BaseUri + "viewer/prompt/" + Matrix.Guid;
-        }
-        else if (features.HasFlag(MatrixFeatures.RowRating))
-        {
-            matrixUrl = NavigationManager.BaseUri + "viewer/rating/" + Matrix.Guid;
-        }
-        else
-        {
-            matrixUrl = NavigationManager.BaseUri + "viewer/interact/" + Matrix.Guid;
-        }
+        var matrixUrl = NavigationManager.BaseUri + "viewer/prompt/" + Matrix!.Guid;
         var options = new DialogOptions { MaxWidth = MaxWidth.Medium, CloseOnEscapeKey = true };
         var parameters = new DialogParameters { ["UrlToCopy"] = matrixUrl };
         var dialog = await DialogService.ShowAsync<CopyUrlDialog>("Share Matrix", parameters: parameters, options: options);
@@ -411,7 +392,8 @@ else
 
         if (response.IsSuccessStatusCode)
         {
-            var message = await response.Content.ReadAsStringAsync();
+            var statusMessage = await response.Content.ReadFromJsonAsync<StatusMessage>();
+            var message = statusMessage is null ? "Matrix saved successfully" : statusMessage.Message;
             Snackbar.Add(message, Severity.Success);
         }
         else
@@ -449,7 +431,7 @@ else
 
         if (Matrix.Prompt.IsEmpty())
         {
-            Snackbar.Add("Prompt cannot be empty", Severity.Error);
+            Snackbar.Add("Decision Scenario cannot be empty", Severity.Error);
             return false;
         }
 

@@ -24,6 +24,23 @@ public abstract class DecisionElementController<TDto>(
 
     protected abstract string DecisionElementDirectoryName { get; }
     
+    [HttpGet]
+    public async Task<ActionResult<IEnumerable<TDto>>> GetDecisionElements()
+    {
+        var userResult = await GetUserFromToken();
+        if (userResult.Result != null)
+        {
+            // If there's a result, it's an error response.
+            return userResult.Result;
+        }
+
+        var user = userResult.Value!;
+        
+        return await GetDecisionElements(user);
+    }
+    
+    protected abstract Task<List<TDto>> GetDecisionElements(User user);
+    
     // GET: api/<DecisionElement>/created
     [HttpGet("created")]
     public async Task<ActionResult<IEnumerable<TDto>>> GetCreatedDecisionElements()
@@ -101,11 +118,11 @@ public abstract class DecisionElementController<TDto>(
     [RequestSizeLimit(ControllerConfig.MaxFileSize)]
     [RequestFormLimits(MultipartBodyLengthLimit = ControllerConfig.MaxFileSize)]
     [Consumes("multipart/form-data")]
-    public async Task<ActionResult<TDto>> PostDecisionElement([FromBody] string metadata, IFormFile file)
+    public async Task<ActionResult<TDto>> PostDecisionElement([FromForm] string metadata, IFormFile file)
     {
         if(file.Length == 0)
         {
-            _logger.LogWarning("File is empty");
+            _logger.LogInformation("File is empty");
             return BadRequest(new { Message = "File is empty" });
         }
         
@@ -128,11 +145,11 @@ public abstract class DecisionElementController<TDto>(
     [RequestSizeLimit(ControllerConfig.MaxFileSize)]
     [RequestFormLimits(MultipartBodyLengthLimit = ControllerConfig.MaxFileSize)]
     [Consumes("multipart/form-data")]
-    public async Task<ActionResult<TDto>> PutDecisionElement(Guid guid, [FromBody] string metadata, IFormFile file)
+    public async Task<ActionResult<TDto>> PutDecisionElement(Guid guid, [FromForm] string metadata, IFormFile file)
     {
         if(file.Length == 0)
         {
-            _logger.LogWarning("File is empty");
+            _logger.LogInformation("File is empty");
             return BadRequest(new { Message = "File is empty" });
         }
         

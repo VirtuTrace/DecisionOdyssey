@@ -158,7 +158,7 @@ public partial class HttpUtility(ApplicationState applicationState)
         memoryStream.Position = 0;
         
         var streamContent = new StreamContent(memoryStream);
-        streamContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+        streamContent.Headers.ContentType = new MediaTypeHeaderValue("application/zip");
         streamContent.Headers.ContentDisposition = new ContentDispositionHeaderValue("form-data")
         {
             Name = "\"file\"",
@@ -168,7 +168,7 @@ public partial class HttpUtility(ApplicationState applicationState)
         var jsonStringContent = new StringContent(jsonContent);
         jsonStringContent.Headers.ContentType = new MediaTypeHeaderValue("application/json");
         formContent.Add(new StreamContent(memoryStream), "file", $"{filename}.zip");
-        formContent.Add(jsonStringContent, "json");
+        formContent.Add(jsonStringContent, "metadata");
         return (formContent, memoryStream);
     }
 

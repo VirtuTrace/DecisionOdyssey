@@ -10,7 +10,7 @@
     <DialogContent>
         <MudPaper Class="d-flex flex-column pa-4" Elevation="0">
             <MudPaper Class="d-flex pa-4" Elevation="0">
-                <MudCheckBox Label="Image:" LabelPosition="LabelPosition.Start" Value="@ImagePresent" Disabled="@VideoPresent" Color="Color.Primary"/>
+                <MudCheckBox Label="Image:" LabelPosition="LabelPosition.Start" @bind-Value="ImagePresent" Disabled="VideoPresent" Color="Color.Primary"/>
                 @if (ImagePresent)
                 {
                     <MudFileUpload T="IBrowserFile" Accept=".png, .jpg, .webp" FilesChanged="UploadImage">
@@ -28,8 +28,8 @@
             </MudPaper>
 
             <MudPaper Class="d-flex pa-4" Elevation="0">
-                <MudCheckBox Label="Audio:" LabelPosition="LabelPosition.Start" Value="@AudioPresent" 
-                             Disabled="@VideoPresent" Color="Color.Primary"/>
+                <MudCheckBox Label="Audio:" LabelPosition="LabelPosition.Start" @bind-Value="AudioPresent" 
+                             Disabled="VideoPresent" Color="Color.Primary"/>
                 @if (AudioPresent)
                 {
                     <MudFileUpload T="IBrowserFile" Accept=".wav, .mp3, .ogg" FilesChanged="UploadAudio">
@@ -46,7 +46,7 @@
                 }
             </MudPaper>
             <MudPaper Class="d-flex pa-4" Elevation="0">
-                <MudCheckBox Label="Video:" LabelPosition="LabelPosition.Start" Value="@VideoPresent" Disabled="@(AudioPresent || ImagePresent)" Color="Color.Primary"/>
+                <MudCheckBox Label="Video:" LabelPosition="LabelPosition.Start" @bind-Value="VideoPresent" Disabled="@(AudioPresent || ImagePresent)" Color="Color.Primary"/>
                 @if (VideoPresent)
                 {
                     <MudFileUpload T="IBrowserFile" Accept=".mp4, .webm, .mov" FilesChanged="UploadVideo">
@@ -63,7 +63,7 @@
                 }
             </MudPaper>
             <MudPaper Class="d-flex pa-4" Elevation="0">
-                <MudCheckBox Label="Text:" LabelPosition="LabelPosition.Start" Value="TextPresent" Color="Color.Primary"/>
+                <MudCheckBox Label="Text:" LabelPosition="LabelPosition.Start" @bind-Value="TextPresent" Color="Color.Primary"/>
                 @if (TextPresent)
                 {
                     <MudTextField T="string" @bind-Value="MatrixCell.Text" Label="Multiline" Variant="Variant.Text"
