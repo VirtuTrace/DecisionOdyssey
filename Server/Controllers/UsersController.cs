@@ -64,13 +64,13 @@ public class UsersController(
 
     // POST: api/User/register
     [HttpPost("register")]
-    public async Task<IActionResult> Register(UserRegisterRequest request)
+    public async Task<IActionResult> Register(RegisterRequest request)
     {
         var user = await GetUserByEmail(request.Email);
         if (user is not null)
         {
             logger.LogInformation("Email is already in use: {email}", request.Email);
-            return BadRequest("Email is already in use.");
+            return BadRequest(new { Message = "Email is already in use." });
         }
 
         user = new User
@@ -189,7 +189,7 @@ public class UsersController(
 
         if (tokenRequest is not null)
         {
-            return await LogoutSession(user, tokenRequest.Token);
+            return await LogoutSession(user, tokenRequest.AccessToken);
         }
 
         return await LogoutAllSessions(user); // Default to logging out of all sessions
@@ -250,24 +250,24 @@ public class UsersController(
     [HttpPost("refresh")]
     public async Task<ActionResult<AuthResponse>> RefreshToken([FromBody] TokenRequest request)
     {
-        var refreshToken = await GetRefreshTokenByToken(request.Token);
+        var refreshToken = await GetRefreshTokenByToken(request.AccessToken);
         if (refreshToken is null)
         {
-            logger.LogInformation("Refresh token not found: {token}", request.Token);
+            logger.LogInformation("Refresh token not found: {token}", request.AccessToken);
             return Unauthorized();
         }
             
         var valid = ValidateRefreshToken(refreshToken);
         if (!valid)
         {
-            logger.LogInformation("Refresh token {token} is invalid", request.Token);
+            logger.LogInformation("Refresh token {token} is invalid", request.AccessToken);
             return Unauthorized();
         }
 
         var user = await GetUserFromRefreshToken(refreshToken);
         if (user is null)
         {
-            logger.LogInformation("User not found for refresh token {token}", request.Token);
+            logger.LogInformation("User not found for refresh token {token}", request.AccessToken);
             return Unauthorized();
         }
             

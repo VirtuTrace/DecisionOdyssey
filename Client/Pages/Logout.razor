@@ -1,0 +1,23 @@
+﻿@page "/logout"
+
+@using Client.Singletons
+@using Common.DataStructures.Http.Requests
+
+@inject NavigationManager NavigationManager
+@inject ApplicationState ApplicationState
+@inject HttpClient Client
+
+<h3>Logout</h3>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        var tokenRequest = new TokenRequest
+        {
+            AccessToken = ApplicationState.AccessToken
+        };
+        await Client.PostAsJsonAsync("logout", tokenRequest);
+        await ApplicationState.ClearCredentials();
+        NavigationManager.NavigateTo("/login");
+    }
+}

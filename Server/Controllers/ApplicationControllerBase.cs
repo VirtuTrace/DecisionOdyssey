@@ -46,9 +46,14 @@ public abstract class ApplicationControllerBase(ApplicationDbContext context, IL
         return Unauthorized();
     }
 
+    /// <summary>
+    ///     Returns a 405 Method Not Allowed response with a message. Message is converted to a JSON object.
+    /// </summary>
+    /// <param name="message">Error message</param>
+    /// <returns>405 Method Not Allowed response</returns>
     protected ObjectResult MethodNotAllowed(string message)
     {
-        return StatusCode(405, message);
+        return StatusCode(405, new { Message = message });
     }
     
     /// <summary>

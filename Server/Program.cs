@@ -71,6 +71,31 @@ builder.Services.AddAuthentication(options =>
     });
 builder.Services.AddAuthorization();
 
+builder.Services.AddCors(options =>
+{
+    #if DEBUG
+    options.AddPolicy("AllowSpecificOrigin",
+        policyBuilder =>
+        {
+            policyBuilder.WithOrigins("https://localhost:7266")
+                         .AllowAnyHeader()
+                         .AllowAnyMethod();
+        });
+    #else
+    options.AddPolicy("AllowSpecificOrigin",
+        policyBuilder =>
+        {
+            policyBuilder.WithOrigins("https://decisionodyssey.ddns.net")
+                    .WithOrigins("https://localhost:5000")
+                    .WithOrigins("https://localhost:443")
+                    .WithOrigins("https://localhost:80")
+                    .AllowAnyHeader()
+                    .AllowAnyMethod()
+                    .AllowCredentials();
+        });
+    #endif
+});
+
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 
 builder.Services.AddRouting(options => options.LowercaseUrls = true);
@@ -108,6 +133,7 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
 });
 
 // Configure the HTTP request pipeline.
+app.UseCors("AllowSpecificOrigin");
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();

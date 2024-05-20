@@ -19,5 +19,9 @@
 </MudNavMenu>
 
 @code {
-    
+    protected override void OnInitialized()
+    {
+        ApplicationState.OnLoggedInStateChanged += StateHasChanged;
+        StateHasChanged();
+    }
 }

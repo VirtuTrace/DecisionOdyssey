@@ -1,7 +1,10 @@
 ﻿export function get(key)
 {
     let value = window.localStorage.getItem(key);
-    return value ? value : null;
+    console.log(value);
+    value = JSON.parse(value);
+    console.log(value);
+    return value != null ? value : null;
 }
 
 export function exists(key)

@@ -10,7 +10,7 @@ builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
 #if DEBUG
-builder.Services.AddScoped(_ => new HttpClient { BaseAddress = new Uri("https://localhost:7012/") });
+builder.Services.AddScoped(_ => new HttpClient { BaseAddress = new Uri("https://localhost:7280/") });
 #else
 builder.Services.AddScoped(_ => new HttpClient { BaseAddress = new Uri("https://decisionodyssey.ddns.net/") });
 #endif

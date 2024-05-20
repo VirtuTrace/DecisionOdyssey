@@ -1,4 +1,5 @@
-﻿using Microsoft.JSInterop;
+﻿using System.Text.Json;
+using Microsoft.JSInterop;
 
 namespace Client.JSWrappers;
 
@@ -9,9 +10,8 @@ public class LocalStorageAccessor(IJSRuntime jsRuntime) : JsWrapper(jsRuntime)
     private async Task<T?> GetValueAsync<T>(string key)
     {
         await WaitForReference();
-        var result = await AccessorJsRef.Value.InvokeAsync<T>("get", key);
-
-        return result;
+        var result = await AccessorJsRef.Value.InvokeAsync<string?>("get", key);
+        return result is null ? default : JsonSerializer.Deserialize<T>(result);
     }
     
     public async Task<T> GetValueOrDefaultAsync<T>(string key, T defaultValue)

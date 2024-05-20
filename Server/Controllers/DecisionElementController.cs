@@ -106,7 +106,7 @@ public abstract class DecisionElementController<TDto>(
         if(file.Length == 0)
         {
             _logger.LogWarning("File is empty");
-            return BadRequest("File is empty");
+            return BadRequest(new { Message = "File is empty" });
         }
         
         var userResult = await GetUserFromToken();
@@ -133,7 +133,7 @@ public abstract class DecisionElementController<TDto>(
         if(file.Length == 0)
         {
             _logger.LogWarning("File is empty");
-            return BadRequest("File is empty");
+            return BadRequest(new { Message = "File is empty" });
         }
         
         var userResult = await GetUserFromToken();

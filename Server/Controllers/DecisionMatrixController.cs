@@ -23,6 +23,7 @@ public class DecisionMatrixController(
 {
     private readonly ApplicationDbContext _context = context;
     private readonly IMapper _mapper = mapper;
+    private readonly ILogger _logger = logger;
 
     protected override string DecisionElementDirectoryName => "Matrices";
 
@@ -32,7 +33,7 @@ public class DecisionMatrixController(
         var decisionMatrices = user.CreatedDecisionMatrices;
         var decisionMatrixDtos = _mapper.Map<List<DecisionMatrixDto>>(decisionMatrices);
         
-        logger.LogInformation("Returning {numberDecisionMatrices} decision matrices created by user {userId}", decisionMatrixDtos.Count, user.Id);
+        _logger.LogInformation("Returning {numberDecisionMatrices} decision matrices created by user {userId}", decisionMatrixDtos.Count, user.Id);
         return decisionMatrixDtos;
     }
 
@@ -42,7 +43,7 @@ public class DecisionMatrixController(
         var decisionMatrices = user.AccessibleDecisionMatrices;
         var decisionMatrixDtos = _mapper.Map<List<DecisionMatrixDto>>(decisionMatrices);
 
-        logger.LogInformation("Returning {numberDecisionMatrices} decision matrices accessible by user {userId}", decisionMatrixDtos.Count, user.Id);
+        _logger.LogInformation("Returning {numberDecisionMatrices} decision matrices accessible by user {userId}", decisionMatrixDtos.Count, user.Id);
         return decisionMatrixDtos;
     }
 
@@ -51,18 +52,18 @@ public class DecisionMatrixController(
         var decisionMatrix = await GetDecisionMatrix(guid);
         if (decisionMatrix is null)
         {
-            logger.LogInformation("Decision matrix with GUID {guid} not found", guid);
+            _logger.LogInformation("Decision matrix with GUID {guid} not found", guid);
             return NotFound();
         }
         
         if (decisionMatrix.UserId != user.Id && !user.AccessibleDecisionMatrices.Contains(decisionMatrix))
         {
-            logger.LogInformation("User {userId} does not have access to decision matrix with GUID {guid}", user.Id, guid);
+            _logger.LogInformation("User {userId} does not have access to decision matrix with GUID {guid}", user.Id, guid);
             return Forbid();
         }
         
         var decisionMatrixDto = _mapper.Map<DecisionMatrixDto>(decisionMatrix);
-        logger.LogInformation("Returning decision matrix with GUID {guid}", guid);
+        _logger.LogInformation("Returning decision matrix with GUID {guid}", guid);
         return decisionMatrixDto;
     }
 
@@ -72,24 +73,24 @@ public class DecisionMatrixController(
         
         if (decisionMatrix is null)
         {
-            logger.LogInformation("Decision matrix with GUID {guid} not found", guid);
+            _logger.LogInformation("Decision matrix with GUID {guid} not found", guid);
             return NotFound();
         }
         
         if (decisionMatrix.UserId != user.Id && !user.AccessibleDecisionMatrices.Contains(decisionMatrix))
         {
-            logger.LogInformation("User {userId} does not have access to decision matrix with GUID {guid}", user.Id, guid);
+            _logger.LogInformation("User {userId} does not have access to decision matrix with GUID {guid}", user.Id, guid);
             return Forbid();
         }
         
         var filepath = decisionMatrix.Filepath;
         if (!System.IO.File.Exists(filepath))
         {
-            logger.LogInformation("Decision matrix with GUID {guid} has no data file", guid);
+            _logger.LogInformation("Decision matrix with GUID {guid} has no data file", guid);
             return NotFound();
         }
         
-        logger.LogInformation("Returning data for decision matrix with GUID {guid}", guid);
+        _logger.LogInformation("Returning data for decision matrix with GUID {guid}", guid);
         return CreatePhysicalFile(filepath);
     }
 
@@ -98,7 +99,7 @@ public class DecisionMatrixController(
         var decisionMatrixDto = JsonSerializer.Deserialize<DecisionMatrixDto>(metadata);
         if (decisionMatrixDto is null)
         {
-            logger.LogInformation("Failed to deserialize decision matrix metadata");
+            _logger.LogInformation("Failed to deserialize decision matrix metadata");
             return BadRequest();
         }
         
@@ -106,7 +107,7 @@ public class DecisionMatrixController(
         
         if (decisionMatrix is not null)
         {
-            logger.LogInformation("Decision matrix with GUID {guid} already exists", decisionMatrixDto.Guid);
+            _logger.LogInformation("Decision matrix with GUID {guid} already exists", decisionMatrixDto.Guid);
             return MethodNotAllowed("Update existing decision matrix instead using PUT");
         }
 
@@ -116,7 +117,7 @@ public class DecisionMatrixController(
         // File exists on disk, but not in database // Could overwrite file on disk
         if (System.IO.File.Exists(filepath))
         {
-            logger.LogWarning("Decision matrix with name {name} already exists", decisionMatrixDto.Name);
+            _logger.LogWarning("Decision matrix with name {name} already exists", decisionMatrixDto.Name);
             //return MethodNotAllowed("Update existing decision matrix instead using PUT");
         }
         
@@ -127,15 +128,15 @@ public class DecisionMatrixController(
         
         _context.DecisionMatrices.Add(decisionMatrix);
         await _context.SaveChangesAsync();
-        logger.LogInformation("Decision matrix with GUID {guid} created", decisionMatrix.Guid);
+        _logger.LogInformation("Decision matrix with GUID {guid} created", decisionMatrix.Guid);
 
         await using (var stream = new FileStream(filepath, FileMode.Create))
         {
             await file.CopyToAsync(stream);
-            logger.LogInformation("Decision matrix with GUID {guid} data saved", decisionMatrix.Guid);
+            _logger.LogInformation("Decision matrix with GUID {guid} data saved", decisionMatrix.Guid);
         }
         
-        return Ok("Decision matrix uploaded successfully");
+        return Ok(new { Message = "Decision matrix uploaded successfully" });
     }
 
     protected override async Task<ActionResult<DecisionMatrixDto>> PutDecisionElement(Guid guid, string metadata, IFormFile file, User user)
@@ -143,27 +144,27 @@ public class DecisionMatrixController(
         var decisionMatrixDto = JsonSerializer.Deserialize<DecisionMatrixDto>(metadata);
         if (decisionMatrixDto is null)
         {
-            logger.LogInformation("Failed to deserialize decision matrix metadata");
+            _logger.LogInformation("Failed to deserialize decision matrix metadata");
             return BadRequest();
         }
         
         var decisionMatrix = await GetDecisionMatrix(guid);
         if (decisionMatrix is null)
         {
-            logger.LogInformation("Decision matrix with GUID {guid} not found", guid);
-            return NotFound("Create new decision matrix instead using POST");
+            _logger.LogInformation("Decision matrix with GUID {guid} not found", guid);
+            return NotFound(new { Message = "Create new decision matrix instead using POST" });
         }
         
         if (decisionMatrix.UserId != user.Id)
         {
-            logger.LogInformation("User {userId} does not have access to decision matrix with GUID {guid}", user.Id, guid);
+            _logger.LogInformation("User {userId} does not have access to decision matrix with GUID {guid}", user.Id, guid);
             return Forbid();
         }
         
         var filepath = decisionMatrix.Filepath;
         if (!System.IO.File.Exists(filepath))
         {
-            logger.LogWarning("Decision matrix with GUID {guid} has no data file", guid);
+            _logger.LogWarning("Decision matrix with GUID {guid} has no data file", guid);
         }
         
         Directory.CreateDirectory(Directory.GetParent(filepath)!.FullName); // Should already exist
@@ -176,15 +177,15 @@ public class DecisionMatrixController(
         
         _context.DecisionMatrices.Update(decisionMatrix);
         await _context.SaveChangesAsync();
-        logger.LogInformation("Decision matrix with GUID {guid} updated", guid);
+        _logger.LogInformation("Decision matrix with GUID {guid} updated", guid);
         
         await using (var stream = new FileStream(filepath, FileMode.Create))
         {
             await file.CopyToAsync(stream);
-            logger.LogInformation("Decision matrix with GUID {guid} data updated", guid);
+            _logger.LogInformation("Decision matrix with GUID {guid} data updated", guid);
         }
         
-        return Ok("Decision matrix updated successfully");
+        return Ok(new { Message = "Decision matrix updated successfully" });
     }
 
     protected override async Task<IActionResult> DeleteDecisionElement(Guid guid, User user)
@@ -192,32 +193,32 @@ public class DecisionMatrixController(
         var decisionMatrix = await GetDecisionMatrix(guid);
         if (decisionMatrix is null)
         {
-            logger.LogInformation("Decision matrix with GUID {guid} not found", guid);
+            _logger.LogInformation("Decision matrix with GUID {guid} not found", guid);
             return NotFound();
         }
         
         if (decisionMatrix.UserId != user.Id)
         {
-            logger.LogInformation("User {userId} does not have access to decision matrix with GUID {guid}", user.Id, guid);
+            _logger.LogInformation("User {userId} does not have access to decision matrix with GUID {guid}", user.Id, guid);
             return Forbid();
         }
         
         _context.DecisionMatrices.Remove(decisionMatrix);
         await _context.SaveChangesAsync();
-        logger.LogInformation("Decision matrix with GUID {guid} deleted", guid);
+        _logger.LogInformation("Decision matrix with GUID {guid} deleted", guid);
         
         var filepath = decisionMatrix.Filepath;
         if (System.IO.File.Exists(filepath))
         {
             System.IO.File.Delete(filepath);
-            logger.LogInformation("Decision matrix with GUID {guid} data deleted", guid);
+            _logger.LogInformation("Decision matrix with GUID {guid} data deleted", guid);
         }
         else
         {
-            logger.LogWarning("Decision matrix with GUID {guid} has no data file", guid);
+            _logger.LogWarning("Decision matrix with GUID {guid} has no data file", guid);
         }
         
-        return Ok("Decision matrix deleted successfully");
+        return Ok(new { Message = "Decision matrix deleted successfully" });
     }
 
     private Task<DecisionMatrix?> GetDecisionMatrix(Guid guid)

@@ -1,5 +1,4 @@
 ﻿@page "/login"
-<h3>Login</h3>
 
 @using Client.Models.Authentication
 @using Client.Singletons
@@ -10,6 +9,8 @@
 @inject ISnackbar Snackbar
 @inject NavigationManager NavManager
 @inject ApplicationState ApplicationState
+
+<h3>Login</h3>
 
 <MudCard>
     <MudCardHeader>
@@ -72,7 +73,7 @@
                 return;
             }
 
-            await ApplicationState.LoginAsync(result);
+            await ApplicationState.StoreCredentials(result);
             Snackbar.Add("Login Successful!", Severity.Success);
             NavigateToDestination();
         }
@@ -107,7 +108,7 @@
                 return;
             }
 
-            await ApplicationState.LoginAsync(result, _model.Email);
+            await ApplicationState.StoreCredentials(result, _model.Email);
             Snackbar.Add("Login Successful!", Severity.Success);
             NavigateToDestination();
         }

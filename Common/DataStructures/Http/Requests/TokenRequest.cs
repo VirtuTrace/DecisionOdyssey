@@ -2,13 +2,13 @@
 
 public class TokenRequest
 {
-    public required string Token { get; set; }
+    public required string AccessToken { get; set; }
     
     public static implicit operator TokenRequest(string token)
     {
         return new TokenRequest
         {
-            Token = token
+            AccessToken = token
         };
     }
 }

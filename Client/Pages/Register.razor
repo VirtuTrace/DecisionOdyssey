@@ -1,0 +1,80 @@
+﻿@page "/register"
+@inject HttpClient Http
+@inject ISnackbar Snackbar
+@inject NavigationManager NavManager
+@using Client.Models.Authentication
+@using Common.DataStructures.Http.Requests
+
+<MudCard>
+    <MudCardHeader>
+        <CardHeaderContent>
+            <MudText Typo="Typo.h6" Align="Align.Center">Register</MudText>
+        </CardHeaderContent>
+    </MudCardHeader>
+    <MudForm Model="_model" @ref="@_form" Validation="@(_registerValidator.ValidateValue)" ValidationDelay="0">
+        <MudCardContent>
+            <MudGrid>
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_model.FirstName" Label="First Name" Immediate="true" For="@(() => _model.FirstName)"/>
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_model.LastName" Label="Last Name" Immediate="true" For="@(() => _model.LastName)"/>
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_model.Email" Label="Email" Immediate="true" For="@(() => _model.Email)"/>
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_model.Password" Label="Password" Immediate="true" For="@(() => _model.Password)" InputType="InputType.Password"/>
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_model.ConfirmPassword" Label="Confirm Password" Immediate="true" For="@(() => _model.ConfirmPassword)" InputType="InputType.Password"/>
+                </MudItem>
+            </MudGrid>
+        </MudCardContent>
+    </MudForm>
+    <MudCardActions>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="ml-auto" OnClick="@(async () => await Submit())">Register</MudButton>
+    </MudCardActions>
+</MudCard>
+
+@code {
+    private MudForm _form = null!;
+
+    private readonly RegisterModelValidator _registerValidator = new();
+
+    private readonly RegisterModel _model = new();
+
+    private async Task Submit()
+    {
+        await _form.Validate();
+
+        if (!_form.IsValid)
+        {
+            return;
+        }
+
+        RegisterRequest request = new()
+        {
+            FirstName = _model.FirstName,
+            LastName = _model.LastName,
+            Email = _model.Email,
+            Password = _model.Password
+        };
+
+        var response = await Http.PostAsJsonAsync("api/Users/register", request);
+        if (response.IsSuccessStatusCode)
+        {
+            Snackbar.Add("Registration Successful!", Severity.Success);
+            NavManager.NavigateTo("/login");
+        }
+        else
+        {
+            var message = await response.Content.ReadAsStringAsync();
+            if (message == "")
+            {
+                message = "Registration Failed!";
+            }
+            Snackbar.Add(message, Severity.Error);
+        }
+    }
+}

@@ -1,7 +1,13 @@
 ﻿@using Client.Components
+@using Client.Singletons
+
 @inherits LayoutComponentBase
 
-<MudThemeProvider />
+@inject ApplicationState ApplicationState
+
+<MudThemeProvider @bind-IsDarkMode="@ApplicationState.DarkMode" Theme="_theme"/>
+<MudDialogProvider/>
+<MudSnackbarProvider/>
 
 <MudLayout>
     <MudAppBar Elevation="1">
@@ -14,16 +20,37 @@
         <NavMenu />
     </MudDrawer>
     <MudMainContent>
-        <MudPaper Elevation="0" Class="ma-4">
-            @Body
-        </MudPaper>
+        <ErrorBoundary>
+            <ChildContent>
+                <MudPaper Elevation="0" Class="ma-4">
+                    @Body
+                </MudPaper>
+            </ChildContent>
+            <ErrorContent Context="ex">
+                @{ OnError(ex); } @*calls custom handler*@
+                @* <p>@ex.Message</p> $1$prints exeption on page#1# *@
+            </ErrorContent>
+        </ErrorBoundary>
     </MudMainContent>
 </MudLayout>
-@code {
-    bool _drawerOpen = true;
 
-    void DrawerToggle()
+@code {
+    private readonly MudTheme _theme = new();
+
+    private bool _drawerOpen = true;
+    
+    protected override void OnInitialized()
+    {
+        ApplicationState.OnDarkModeChanged += StateHasChanged;
+    }
+    
+    private void DrawerToggle()
     {
         _drawerOpen = !_drawerOpen;
+    }
+    
+    private static void OnError(Exception ex)
+    {
+        Console.WriteLine(ex.Message);
     }
 }

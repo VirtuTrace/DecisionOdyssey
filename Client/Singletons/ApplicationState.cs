@@ -38,7 +38,7 @@ public class ApplicationState
     public event Action? OnLoggedInStateChanged;
     public event Action? OnDarkModeChanged;
 
-    public async Task LoginAsync(AuthResponse authResponse, string? email = null)
+    public async Task StoreCredentials(AuthResponse authResponse, string? email = null)
     {
         LoggedIn = true;
         
@@ -63,24 +63,25 @@ public class ApplicationState
         OnLoggedInStateChanged?.Invoke();
     }
     
-    public async Task LogoutAsync()
+    public async Task ClearCredentials()
     {
         LoggedIn = false;
         Email = "";
         AccessToken = "";
+        RefreshToken = "";
         await _localStorageAccessor.RemoveAsync(EmailKey);
         await _localStorageAccessor.RemoveAsync(AccessTokenKey);
+        await _localStorageAccessor.RemoveAsync(RefreshTokenKey);
         OnLoggedInStateChanged?.Invoke();
     }
     
     public async Task InitializeAsync(LocalStorageAccessor localStorageAccessor)
     {
         _localStorageAccessor = localStorageAccessor;
-        AccessToken = (await localStorageAccessor.GetValueOrDefaultAsync(AccessTokenKey, string.Empty))!;
-        RefreshToken = (await localStorageAccessor.GetValueOrDefaultAsync(RefreshTokenKey, string.Empty))!;
-        Email = (await localStorageAccessor.GetValueOrDefaultAsync(EmailKey, string.Empty))!;
-        DarkMode = (await localStorageAccessor.GetValueOrDefaultAsync(DarkModeKey, false))!;
-        
+        AccessToken = await localStorageAccessor.GetValueOrDefaultAsync(AccessTokenKey, string.Empty);
+        RefreshToken = await localStorageAccessor.GetValueOrDefaultAsync(RefreshTokenKey, string.Empty);
+        Email = await localStorageAccessor.GetValueOrDefaultAsync(EmailKey, string.Empty);
+        DarkMode = await localStorageAccessor.GetValueOrDefaultAsync(DarkModeKey, false);
         LoggedIn = !string.IsNullOrWhiteSpace(RefreshToken) && !string.IsNullOrWhiteSpace(Email);
     }
 }

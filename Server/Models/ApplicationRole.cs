@@ -8,7 +8,7 @@ public class ApplicationRole : IdentityRole<long>
     {
         ["SuperAdmin"] = 0,
         ["Admin"] = 1,
-        ["Researcher"] = 2,
+        ["Researcher"] = 2, // Decision Project Manager
         ["User"] = 3,
         ["Guest"] = 4
     };
