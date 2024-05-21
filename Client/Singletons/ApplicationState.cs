@@ -1,6 +1,6 @@
 ﻿using Client.JSWrappers;
+using Client.Models.DecisionElements.DecisionMatrix;
 using Common.DataStructures.Http.Responses;
-using MudBlazor.Components.Chart;
 
 namespace Client.Singletons;
 

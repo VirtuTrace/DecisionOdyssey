@@ -1,0 +1,146 @@
+﻿@page "/viewer/matrix/prompt/{ElementGuid:guid}"
+
+@using Client.JSWrappers
+@using Client.Models.DecisionElements.DecisionMatrix
+@using Client.Singletons
+@using Common.Enums
+@using Client.Components
+@using Client.Models.DecisionElements
+@using Client.Utility
+
+@inherits Client.Pages.Base.AuthenticatedPage
+
+@inject ApplicationState ApplicationState
+@inject NavigationManager NavigationManager
+@inject HttpClient Http
+@inject HttpUtility HttpUtility
+@inject BlobCreator BlobCreator
+
+<h3>Decision Scenario</h3>
+
+@if (Loading)
+{
+    <MudText>Fetching Data...</MudText>
+    <MudProgressCircular Color="Color.Primary" Indeterminate="true"/>
+}
+else
+{
+    if (YoutubeVideoId is not null)
+    {
+        <MudPaper Height="720px" Elevation="0">
+            <iframe style="height: 100%; width: 100%;" src=@($"https://www.youtube-nocookie.com/embed/{YoutubeVideoId}")
+                    allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen>
+            </iframe>
+        </MudPaper>
+    }
+    <MudGrid>
+        @if (MatrixPrompt.Contains(MatrixDataType.Video))
+        {
+            <MudItem xs="12">
+                <VideoElement VideoSource="@Cache.VideoBlobUrl"/>
+            </MudItem>
+        }
+        else
+        {
+            @if (MatrixPrompt.Contains(MatrixDataType.Image))
+            {
+                <MudItem xs="12">
+                    <img src="@Cache.ImageBlobUrl" alt="Image" width="400px" height="262px"/>
+                </MudItem>
+            }
+
+            @if (MatrixPrompt.Contains(MatrixDataType.Audio))
+            {
+                <MudItem xs="12">
+                    <AudioElement AudioSource="@Cache.AudioBlobUrl"/>
+                </MudItem>
+            }
+        }
+        @if (MatrixPrompt.Contains(MatrixDataType.Text))
+        {
+            <MudItem xs="12">
+                <MudContainer Style="max-height: 300px; overflow-y: auto">
+                    <MudText Style="white-space: pre-wrap;">@MatrixPrompt.Text</MudText>
+                </MudContainer>
+            </MudItem>
+        }
+    </MudGrid>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Continue">Continue</MudButton>
+}
+
+@code {
+    [Parameter] public Guid ElementGuid { get; set; }
+
+    protected override string RedirectUrl => "/login?redirect=" + Uri.EscapeDataString($"/viewer/matrix/prompt/{ElementGuid}");
+
+    private MatrixCell MatrixPrompt { get; set; } = null!;
+    private MatrixCellBlobCache Cache { get; } = new();
+    private bool Loading { get; set; } = true;
+    private string? YoutubeVideoId { get; set; }
+    private string? OriginalText { get; set; }
+
+    protected override async Task<bool> OnInitializedAsync()
+    {
+        var valid = await base.OnInitializedAsync();
+        if (!valid)
+        {
+            return false;
+        }
+        Loading = true;
+        ApplicationState.SelectedMatrix ??= await HttpUtility.GetMatrix(Http, ElementGuid);
+        MatrixPrompt = ApplicationState.SelectedMatrix.Prompt;
+        if (MatrixPrompt.Contains(MatrixDataType.Image))
+        {
+            Cache.ImageBlobUrl = await CreateBlobUrl(MatrixPrompt.Image, "image");
+        }
+
+        if (MatrixPrompt.Contains(MatrixDataType.Audio))
+        {
+            Cache.AudioBlobUrl = await CreateBlobUrl(MatrixPrompt.Audio, "audio");
+        }
+
+        if (MatrixPrompt.Contains(MatrixDataType.Video))
+        {
+            Cache.VideoBlobUrl = await CreateBlobUrl(MatrixPrompt.Video, "video");
+        }
+
+        if (MatrixPrompt.Contains(MatrixDataType.Text))
+        {
+            var text = MatrixPrompt.Text;
+            OriginalText = text;
+            // TODO: Support shortened and embedded links
+            if (text.Contains("https://www.youtube.com"))
+            {
+                var start = text.IndexOf("https://www.youtube.com", StringComparison.Ordinal);
+                if (start != -1)
+                {
+                    var end = text.IndexOf(" ", start, StringComparison.Ordinal);
+                    var youtubeLink = end == -1 ? text[start..] : text.Substring(start, end - start);
+                    MatrixPrompt.Text = text.Replace(youtubeLink, "");
+                    YoutubeVideoId = youtubeLink.Split("v=")[1];
+                }
+            }
+        }
+
+        Loading = false;
+        return true;
+    }
+
+    private Task<string> CreateBlobUrl(MediaData media, string contentHeader)
+    {
+        return BlobCreator.CreateBlobUrl(media.Data!, $"{contentHeader}/{media.Extension.RemoveChar('.')}");
+    }
+
+    private async void Continue()
+    {
+        await Cache.RevokeUrls(BlobCreator);
+        var destination = ApplicationState.SelectedMatrix!.Features.HasFlag(MatrixFeatures.RowRating)
+            ? "rating"
+            : "interact";
+        if (OriginalText is not null)
+        {
+            MatrixPrompt.Text = OriginalText;
+        }
+        NavigationManager.NavigateTo($"viewer/matrix/{destination}/{ElementGuid}");
+    }
+}

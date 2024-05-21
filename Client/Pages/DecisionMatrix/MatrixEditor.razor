@@ -212,12 +212,10 @@ else
         
         var matrices = await HttpUtility.GetMatrices(Http);
         Matrices.Clear();
-        Matrices.Add(new DecisionMatrixDto
-        {
-            Name = CreateMatrix,
-            UserEmail = ""
-        });
+        var placeholder = new DecisionMatrixDto { Name = CreateMatrix, UserEmail = "" };
+        Matrices.Add(placeholder);
         Matrices.AddRange(matrices);
+        SelectedMatrix = placeholder;
         StateHasChanged();
         return true;
     }
@@ -247,11 +245,6 @@ else
             EditingExistingMatrix = true;
             MatrixGuid = SelectedMatrix.Guid;
         }
-    }
-
-    private void UpdatePromptExistence()
-    {
-        // TODO: Remove
     }
 
     private async Task OpenCellEditDialog(int row, int col)
@@ -363,7 +356,7 @@ else
 
     private async void SaveMatrix()
     {
-        if (!MatrixValid())
+        if (!IsMatrixValid())
         {
             return;
         }
@@ -395,6 +388,7 @@ else
             var statusMessage = await response.Content.ReadFromJsonAsync<StatusMessage>();
             var message = statusMessage is null ? "Matrix saved successfully" : statusMessage.Message;
             Snackbar.Add(message, Severity.Success);
+            EditingExistingMatrix = true;
         }
         else
         {
@@ -403,9 +397,14 @@ else
         }
     }
 
-    private bool MatrixValid()
+    private bool IsMatrixValid()
     {
-        if (Matrix!.Name == "")
+        if (Matrix is null)
+        {
+            return false;
+        }
+        
+        if (Matrix.Name == "")
         {
             Snackbar.Add("Matrix must have a title", Severity.Error);
             return false;

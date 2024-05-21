@@ -247,6 +247,7 @@ public class UsersController(
     }
     
     // POST: api/User/refresh
+    [AllowAnonymous]
     [HttpPost("refresh")]
     public async Task<ActionResult<AuthResponse>> RefreshToken([FromBody] TokenRequest request)
     {

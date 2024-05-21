@@ -167,5 +167,11 @@ public class Matrix : DecisionElement
         ColumnNames.Clear();
         ColumnNames.AddRange(metadata.ColumnNames);
         AllottedTime = metadata.AllottedTime;
+
+        Data.Clear();
+        foreach (var row in RowNames.Select(_ => ColumnNames.Select(_ => new MatrixCell()).ToList()))
+        {
+            Data.Add(row);
+        }
     }
 }

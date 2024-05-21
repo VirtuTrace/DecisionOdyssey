@@ -8,6 +8,8 @@ using Client.Models.DecisionElements.DecisionMatrix;
 using Client.Utility;
 using Common.DataStructures.Dtos.DecisionElements;
 using Common.DataStructures.Dtos.DecisionElements.Stats;
+using Common.DataStructures.Http.Requests;
+using Common.DataStructures.Http.Responses;
 
 namespace Client.Singletons;
 
@@ -29,32 +31,78 @@ public partial class HttpUtility(ApplicationState applicationState)
 
     public async Task<List<DecisionMatrixDto>> GetMatrices(HttpClient http)
     {
-        http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", applicationState.AccessToken);
-        var response = await http.GetAsync("api/DecisionMatrix");
-        var matrices = new List<DecisionMatrixDto>();
-        if (response.IsSuccessStatusCode)
+        while (true)
         {
-            var content = await response.Content.ReadAsStringAsync();
-            #if DEBUG
-            Console.WriteLine(content);
-            #endif
-
-            var deserializedMatrices = JsonSerializer.Deserialize<List<DecisionMatrixDto>>(content, Options);
-
-            if (deserializedMatrices is null)
+            http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", applicationState.AccessToken);
+            var response = await http.GetAsync("api/DecisionMatrix");
+            var matrices = new List<DecisionMatrixDto>();
+            if (response.IsSuccessStatusCode)
             {
-                await Console.Error.WriteLineAsync("Failed to get matrices");
+                var content = await response.Content.ReadAsStringAsync();
+                #if DEBUG
+                Console.WriteLine(content);
+                #endif
+
+                var deserializedMatrices = JsonSerializer.Deserialize<List<DecisionMatrixDto>>(content, Options);
+
+                if (deserializedMatrices is null)
+                {
+                    await Console.Error.WriteLineAsync("Failed to get matrices");
+                }
+                else
+                {
+                    matrices.AddRange(deserializedMatrices);
+                }
             }
             else
             {
-                matrices.AddRange(deserializedMatrices);
+                if (await CheckAndRefreshToken(http, response))
+                {
+                    continue;
+                }
+
+                await Console.Error.WriteLineAsync("Failed to get matrices");
             }
+
+            return matrices;
+        }
+    }
+
+    private async Task<bool> CheckAndRefreshToken(HttpClient http, HttpResponseMessage response)
+    {
+        var headers = response.Headers;
+        if (headers.TryGetValues("token-expired", out var values) && values.Contains("true"))
+        {
+            return await RefreshToken(http);
+        }
+
+        return false;
+    }
+    
+    private async Task<bool> RefreshToken(HttpClient http)
+    {
+        var tokenRequest = new TokenRequest {
+            AccessToken = applicationState.RefreshToken
+        };
+        var response = await http.PostAsJsonAsync("api/User/refresh", tokenRequest);
+        if (response.IsSuccessStatusCode)
+        {
+            var authResponse = await response.Content.ReadFromJsonAsync<AuthResponse>();
+            if (authResponse is null)
+            {
+                await Console.Error.WriteLineAsync("Failed to deserialize refresh token");
+                return false;
+            }
+            
+            await applicationState.StoreCredentials(authResponse, applicationState.Email);
         }
         else
         {
-            await Console.Error.WriteLineAsync("Failed to get matrices");
+            await Console.Error.WriteLineAsync("Failed to refresh token");
+            return false;
         }
-        return matrices;
+        
+        return true;
     }
     
     public async Task<Matrix> GetMatrix(HttpClient http, Guid matrixGuid)
@@ -80,7 +128,7 @@ public partial class HttpUtility(ApplicationState applicationState)
     
     private static async Task<Matrix> ReadArchive(ZipArchive archive)
     {
-        var metadataStream = archive.GetEntry("data.json")!.Open();
+        var metadataStream = archive.GetEntry("metadata.json")!.Open();
         var metadataBytes = await metadataStream.GetBytesAsync();
         var metadata = JsonSerializer.Deserialize<DecisionMatrixMetadata>(metadataBytes);
         if (metadata is null)
@@ -93,7 +141,7 @@ public partial class HttpUtility(ApplicationState applicationState)
 
         foreach (var entry in archive.Entries)
         {
-            if (entry.Name == "data.json")
+            if (entry.Name == "metadata.json")
             {
                 continue;
             }
