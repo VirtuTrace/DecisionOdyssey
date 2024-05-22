@@ -395,6 +395,8 @@ else
             var message = response.ReasonPhrase ?? $"Error: {response.StatusCode}";
             Snackbar.Add(message, Severity.Error);
         }
+        
+        StateHasChanged();
     }
 
     private bool IsMatrixValid()

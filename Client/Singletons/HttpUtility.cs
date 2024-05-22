@@ -45,19 +45,20 @@ public partial class HttpUtility(ApplicationState applicationState)
 
                 var deserializedMatrices = JsonSerializer.Deserialize<List<DecisionMatrixDto>>(content, Options);
 
-                if (deserializedMatrices is null)
+                if (deserializedMatrices is not null)
                 {
-                    await Console.Error.WriteLineAsync("Failed to get matrices");
+                    matrices.AddRange(deserializedMatrices);
                 }
                 else
                 {
-                    matrices.AddRange(deserializedMatrices);
+                    await Console.Error.WriteLineAsync("Failed to deserialize matrices");
                 }
             }
             else
             {
                 if (await CheckAndRefreshToken(http, response))
                 {
+                    Console.WriteLine("Retrying");
                     continue;
                 }
 
@@ -84,7 +85,7 @@ public partial class HttpUtility(ApplicationState applicationState)
         var tokenRequest = new TokenRequest {
             AccessToken = applicationState.RefreshToken
         };
-        var response = await http.PostAsJsonAsync("api/User/refresh", tokenRequest);
+        var response = await http.PostAsJsonAsync("api/users/refresh", tokenRequest);
         if (response.IsSuccessStatusCode)
         {
             var authResponse = await response.Content.ReadFromJsonAsync<AuthResponse>();
