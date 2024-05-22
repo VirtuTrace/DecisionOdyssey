@@ -1,0 +1,41 @@
+﻿@using System.Timers
+
+@implements IDisposable
+
+<h3>Time Remaining: @_timeLeft.ToString("hh':'mm':'ss")</h3>
+
+@code {
+    [Parameter] public double Duration { get; set; } = 3600;
+    [Parameter] public double Interval { get; set; } = 1000;
+    [Parameter] public Action? OnTimerElapsed { get; set; }
+    private Timer _timer = null!;
+    private TimeSpan _timeLeft;
+
+    protected override void OnInitialized()
+    {
+        _timeLeft = TimeSpan.FromSeconds(Duration);
+        _timer = new Timer(Interval);
+        _timer.Elapsed += TimerElapsed;
+        _timer.Start();
+    }
+
+    private void TimerElapsed(object? sender, ElapsedEventArgs e)
+    {
+        if (_timeLeft.TotalSeconds > 0)
+        {
+            _timeLeft = _timeLeft.Subtract(TimeSpan.FromSeconds(1));
+            InvokeAsync(StateHasChanged); // Update the UI
+        }
+        else
+        {
+            _timer.Stop();
+            OnTimerElapsed?.Invoke();
+        }
+    }
+
+    public void Dispose()
+    {
+        _timer.Stop();
+        _timer.Dispose();
+    }
+}

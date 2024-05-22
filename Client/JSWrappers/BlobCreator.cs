@@ -1,4 +1,6 @@
-﻿using Microsoft.JSInterop;
+﻿using Client.Models.DecisionElements;
+using Client.Utility;
+using Microsoft.JSInterop;
 
 namespace Client.JSWrappers;
 
@@ -16,5 +18,10 @@ public class BlobCreator(IJSRuntime jsRuntime) : JsWrapper(jsRuntime)
     {
         await WaitForReference();
         await AccessorJsRef.Value.InvokeVoidAsync("revokeBlobUrl", blobUrl);
+    }
+
+    public Task<string> CreateMediaBlobUrl(MediaData media, string contentHeader)
+    {
+        return CreateBlobUrl(media.Data!, $"{contentHeader}/{media.Extension.RemoveChar('.')}");
     }
 }

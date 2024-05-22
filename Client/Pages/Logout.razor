@@ -4,20 +4,15 @@
 @using Common.DataStructures.Http.Requests
 
 @inject NavigationManager NavigationManager
-@inject ApplicationState ApplicationState
-@inject HttpClient Client
+@inject HttpUtility HttpUtility
+@inject HttpClient Http
 
 <h3>Logout</h3>
 
 @code {
     protected override async Task OnInitializedAsync()
     {
-        var tokenRequest = new TokenRequest
-        {
-            AccessToken = ApplicationState.AccessToken
-        };
-        await Client.PostAsJsonAsync("logout", tokenRequest);
-        await ApplicationState.ClearCredentials();
+        await HttpUtility.Logout(Http);
         NavigationManager.NavigateTo("/login");
     }
 }

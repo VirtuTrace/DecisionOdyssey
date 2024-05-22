@@ -1,0 +1,341 @@
+﻿@page "/viewer/matrix/interact/{ElementGuid:guid}"
+
+@using System.Text
+@using System.Text.Json
+@using Client.Components.Dialogs
+@using Client.JSWrappers
+@using Client.Models.DecisionElements.DecisionMatrix
+@using Client.Singletons
+@using Common.Enums
+
+@using Client.Models.DecisionElements.DecisionMatrix.Stats
+@using Client.Components
+@using Common.DataStructures.Http.Requests
+
+@inherits Client.Pages.Base.AuthenticatedPage
+
+@inject ApplicationState ApplicationState
+@inject NavigationManager NavigationManager
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject HttpClient Http
+@inject HttpUtility HttpUtility
+@inject BlobCreator BlobCreator
+
+<h3>Interact</h3>
+@if(TimerEnabled)
+{
+    <CountdownTimer Duration="Matrix.AllottedTime" OnTimerElapsed="TimerExpired"/>
+}
+@if (HasPrompt)
+{
+    @if (Loading)
+    {
+        <MudText>Fetching Data...</MudText>
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true"/>
+    }
+    else
+    {
+        if (YoutubeVideoId is not null)
+        {
+            <MudPaper Height="720px" Elevation="0">
+                <iframe style="height: 100%;width: 100%;" src=@($"https://www.youtube-nocookie.com/embed/{YoutubeVideoId}")
+                        allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen>
+                </iframe>
+            </MudPaper>
+        }
+        <MudGrid>
+            @if (Matrix.Prompt!.Contains(MatrixDataType.Video))
+            {
+                <MudItem xs="12">
+                    <VideoElement VideoSource="@PromptCache.VideoBlobUrl"/>
+                </MudItem>
+            }
+            else
+            {
+                @if (Matrix.Prompt.Contains(MatrixDataType.Image))
+                {
+                    <MudItem xs="12">
+                        <img src="@PromptCache.ImageBlobUrl" alt="Image" width="400px" height="262px"/>
+                    </MudItem>
+                }
+
+                @if (Matrix.Prompt.Contains(MatrixDataType.Audio))
+                {
+                    <MudItem xs="12">
+                        <AudioElement AudioSource="@PromptCache.AudioBlobUrl"/>
+                    </MudItem>
+                }
+            }
+            @if (Matrix.Prompt.Contains(MatrixDataType.Text))
+            {
+                <MudItem xs="12">
+                    <MudContainer Style="max-height: 300px; overflow-y: auto">
+                        <MudText Style="white-space: pre-wrap;">@Matrix.Prompt.Text</MudText>
+                    </MudContainer>
+                </MudItem>
+            }
+        </MudGrid>
+    }
+}
+<MudPaper Class="mb-3" Elevation="0">
+    <MudText>
+        Below is a matrix of alternatives with their decision factors to help understand your decision making process.
+    </MudText>
+</MudPaper>
+<MudSimpleTable Style="overflow-x: auto;">
+    <thead>
+        <tr>
+            <th style="border-right: 1px solid #cdd0d4;"></th>
+            <th colspan="@Matrix.ColumnCount" style="text-align: center; font-weight: bold;">Alternatives</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <th style="border-right: 1px solid #cdd0d4; font-weight: bold;">Decision Factors</th>
+            @foreach(var col in ColumnOrder)
+            {
+            <th style="text-align: center;">@Matrix.ColumnNames[col]</th>
+            }
+        </tr>
+        @foreach (var row in RowOrder)
+        {
+            var localRow = row;
+            <tr>
+                <th style="border-right: 1px solid #cdd0d4;">@Matrix.RowNames[localRow]</th>
+                @foreach (var col in ColumnOrder)
+                {
+                    var localCol = col;
+                    <td style="text-align: center; vertical-align: middle;">
+                        <MudButton Variant="@Variant.Filled" StartIcon="@Icons.Material.Outlined.Visibility"
+                                   Color="Color.Primary" OnClick="@(() => OpenDialog(localRow, localCol))"
+                                   Disabled="@(!TimerRunning)">View</MudButton>
+                    </td>
+                }
+            </tr>
+        }
+    <tr>
+        <td style="border-right: 1px solid #cdd0d4;"></td>
+        @for (var _ = 0; _ < Matrix.ColumnCount; _++)
+        {
+            <td></td>
+        }
+    </tr>
+    <tr>
+        <td style="border-right: 1px solid #cdd0d4;">Select Decision</td>
+        @foreach (var col in ColumnOrder)
+        {
+            var localCol = col;
+            <td style="text-align: center; vertical-align: middle;">
+                <MudIconButton Variant="@Variant.Filled" Icon="@Icons.Material.Outlined.CheckCircle" Color="Color.Tertiary"
+                               OnClick="@(() => OpenConfirmationDialog(localCol))" Class="rounded-circle"/>
+            </td>
+        }
+    </tr>
+    </tbody>
+</MudSimpleTable>
+
+<style>
+    .blur-background {
+        backdrop-filter: blur(10px);
+    }
+</style>
+
+
+@code {
+    [Parameter]
+    public Guid ElementGuid { get; set; }
+
+    protected override string RedirectUrl => "/login?redirect=" + Uri.EscapeDataString($"/viewer/interact/{ElementGuid}");
+
+    private static Random Random { get; } = new();
+    
+    private Matrix Matrix { get; set; } = new();
+    private MatrixStats Stats { get; set; } = null!;
+    private bool TimerEnabled { get; set; }
+    private bool TimerRunning { get; set; } = true;
+    private int[] RowOrder { get; set; } = [];
+    private int[] ColumnOrder { get; set; } = [];
+    private MatrixCellBlobCache[,] CellCache { get; set; } = null!;
+    private MatrixCellBlobCache PromptCache { get; set; } = null!;
+    private bool HasPrompt { get; set; }
+    private string? YoutubeVideoId { get; set; }
+    private bool Loading { get; set; }
+
+    protected override async Task<bool> OnInitializedAsync()
+    {
+         var valid= await base.OnInitializedAsync();
+         if (!valid)
+         {
+             return false;
+         }
+
+        ApplicationState.SelectedMatrix ??= await HttpUtility.GetMatrix(Http, ElementGuid);
+
+        Matrix = ApplicationState.SelectedMatrix;
+        if (Matrix.Features.HasFlag(MatrixFeatures.Timer))
+        {
+            TimerEnabled = true;
+        }
+
+        Loading = true;
+        HasPrompt = true;
+        PromptCache = new MatrixCellBlobCache();
+        YoutubeVideoId = await LoadMedia(Matrix.Prompt!, PromptCache);
+
+        RowOrder = Matrix.Features.HasFlag(MatrixFeatures.RowRandomization)
+            ? Enumerable.Range(0, Matrix.RowCount).OrderBy(_ => Random.Next()).ToArray()
+            : Enumerable.Range(0, Matrix.RowCount).ToArray();
+        ColumnOrder = Matrix.Features.HasFlag(MatrixFeatures.ColumnRandomization)
+            ? Enumerable.Range(0, Matrix.ColumnCount).OrderBy(_ => Random.Next()).ToArray()
+            : Enumerable.Range(0, Matrix.ColumnCount).ToArray();
+
+        Stats = new MatrixStats(Matrix)
+        {
+            ParticipantEmail = ApplicationState.Email,
+            RowRatings = ApplicationState.RowRatings
+        };
+
+        ApplicationState.RowRatings = null;
+
+        CellCache = new MatrixCellBlobCache[Matrix.RowCount, Matrix.ColumnCount];
+        for (var row = 0; row < Matrix.RowCount; row++)
+        {
+            for (var col = 0; col < Matrix.ColumnCount; col++)
+            {
+                CellCache[row, col] = new MatrixCellBlobCache();
+            }
+        }
+
+        Loading = false;
+        StateHasChanged();
+        return true;
+    }
+
+    private async Task OpenDialog(int row, int col)
+    {
+        var statCell = Stats[row, col];
+        var options = new DialogOptions
+        {
+            MaxWidth = MaxWidth.Medium, CloseOnEscapeKey = true, ClassBackground = "blur-background"
+        };
+        var parameters = new DialogParameters
+        {
+            ["MatrixCell"] = Matrix[row, col],
+            ["MatrixStatsCell"] = statCell,
+            ["Cache"] = CellCache[row, col],
+            ["AllowRating"] = Matrix.Features.HasFlag(MatrixFeatures.ColumnRating)
+        };
+        statCell.RecordStartInteraction();
+        var alternative = Matrix.ColumnNames[col];
+        var dimension = Matrix.RowNames[row];
+        var title = $"Implication of {alternative} on {dimension}";
+        var dialog = await DialogService.ShowAsync<ViewerMatrixDialog>(title, parameters: parameters, options: options);
+        var result = await dialog.Result;
+        statCell.RecordEndInteraction();
+        if (!result.Canceled)
+        {
+            var rating = (int)result.Data;
+            statCell.Rating = rating;
+        }
+    }
+
+    private async Task OpenConfirmationDialog(int col)
+    {
+        var options = new DialogOptions
+        {
+            MaxWidth = MaxWidth.Medium, CloseOnEscapeKey = true
+        };
+        var text = $"Are you sure you you want to select \"{Matrix[col, false]}\"?";
+        var parameters = new DialogParameters { ["DialogText"] = text };
+        var dialog = await DialogService.ShowAsync<ConfirmationDialog>("Confirm Selection", parameters: parameters, options: options);
+        var result = await dialog.Result;
+        if (!result.Canceled)
+        {
+            Snackbar.Add("Decision Made!", Severity.Success);
+            Stats.Decision = col;
+            var json = Stats;
+            var response = await Http.PostAsJsonAsync("api/DecisionMatrix/stats", json);
+            if (!response.IsSuccessStatusCode)
+            {
+                var message = response.ReasonPhrase ?? $"Error: {response.StatusCode}";
+                Snackbar.Add(message, Severity.Error);
+            }
+            else
+            {
+                var message = await response.Content.ReadAsStringAsync();
+                Snackbar.Add(message, Severity.Success);
+                ApplicationState.SelectedMatrix = null;
+                if (HasPrompt)
+                {
+                    await PromptCache.RevokeUrls(BlobCreator);
+                }
+
+                foreach (var cache in CellCache)
+                {
+                    await cache.RevokeUrls(BlobCreator);
+                }
+
+                if (ApplicationState.GuestLogin)
+                {
+                    await HttpUtility.Logout(Http);
+                    NavigationManager.NavigateTo("/");
+                }
+                else
+                {
+                    NavigationManager.NavigateTo("/viewer/matrix/select");
+                }
+            }
+        }
+    }
+
+    private void TimerExpired()
+    {
+        TimerRunning = false;
+        StateHasChanged();
+    }
+
+    private async Task<string?> LoadMedia(MatrixCell cell, MatrixCellBlobCache cache)
+    {
+        string? youtubeId = null;
+        if (cell.Contains(MatrixDataType.Image))
+        {
+            cache.ImageBlobUrl = await BlobCreator.CreateMediaBlobUrl(cell.Image, "image");
+        }
+
+        if (cell.Contains(MatrixDataType.Audio))
+        {
+            cache.AudioBlobUrl = await BlobCreator.CreateMediaBlobUrl(cell.Audio, "audio");
+        }
+
+        if (cell.Contains(MatrixDataType.Video))
+        {
+            cache.VideoBlobUrl = await BlobCreator.CreateMediaBlobUrl(cell.Video, "video");
+        }
+
+        if (!cell.Contains(MatrixDataType.Text))
+        {
+            return youtubeId;
+        }
+
+        var text = cell.Text;
+        // TODO: Support shortened and embedded links
+        if (!text.Contains("https://www.youtube.com"))
+        {
+            return youtubeId;
+        }
+
+        var start = text.IndexOf("https://www.youtube.com", StringComparison.Ordinal);
+        if (start == -1)
+        {
+            return youtubeId;
+        }
+
+        var end = text.IndexOf(" ", start, StringComparison.Ordinal);
+        var youtubeLink = end == -1 ? text[start..] : text.Substring(start, end - start);
+        cell.Text = text.Replace(youtubeLink, "");
+        youtubeId =  youtubeLink.Split("v=")[1];
+
+        return youtubeId;
+    }
+}

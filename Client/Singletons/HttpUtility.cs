@@ -238,4 +238,18 @@ public partial class HttpUtility(ApplicationState applicationState)
         
         return content;
     }
+
+    public async Task Logout(HttpClient http)
+    {
+        var tokenRequest = new TokenRequest
+        {
+            AccessToken = applicationState.AccessToken
+        };
+        var response = await http.PostAsJsonAsync("logout", tokenRequest);
+        if (!response.IsSuccessStatusCode)
+        {
+            await Console.Error.WriteLineAsync("Failed to logout");
+        }
+        await applicationState.ClearCredentials();
+    }
 }
