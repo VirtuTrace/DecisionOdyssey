@@ -1,10 +1,14 @@
-﻿using AutoMapper;
+﻿using System.Runtime.CompilerServices;
+using AutoMapper;
+using Common.DataStructures;
 using Common.DataStructures.Dtos.DecisionElements;
+using Common.DataStructures.Dtos.DecisionElements.Stats;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Server.Contexts;
 using Server.Models;
+using Server.Models.DecisionElements.Stats;
 using Server.Utility;
 
 namespace Server.Controllers;
@@ -185,6 +189,60 @@ public abstract class DecisionElementController<TDto>(
     
     protected abstract Task<IActionResult> DeleteDecisionElement(Guid guid, User user);
     
+    [Authorize(Roles = "SuperAdmin,Admin,Researcher")]
+    [HttpGet("{guid:guid}/stats")]
+    public async Task<ActionResult<List<DecisionElementStatsDto>>> GetDecisionElementStats(Guid guid)
+    {
+        var userResult = await GetUserFromToken();
+        if (userResult.Result != null)
+        {
+            // If there's a result, it's an error response.
+            return userResult.Result;
+        }
+        
+        var user = userResult.Value!;
+        
+        return await GetDecisionElementStats(guid, user);
+    }
+    
+    protected abstract Task<ActionResult<List<DecisionElementStatsDto>>> GetDecisionElementStats(Guid guid, User user);
+    
+    [Authorize(Roles = "SuperAdmin,Admin,Researcher")]
+    [HttpGet("{guid:guid}/stats/data")]
+    public async Task<ActionResult<List<DecisionMatrixStatsData>>> GetDecisionElementStatsData(Guid guid)
+    {
+        var userResult = await GetUserFromToken();
+        if (userResult.Result != null)
+        {
+            // If there's a result, it's an error response.
+            return userResult.Result;
+        }
+        
+        var user = userResult.Value!;
+        
+        return await GetDecisionElementStatsData(guid, user);
+    }
+    
+    protected abstract Task<ActionResult<List<DecisionMatrixStatsData>>> GetDecisionElementStatsData(Guid guid, User user);
+    
+    [HttpPost("stats")]
+    [RequestSizeLimit(ControllerConfig.MaxFileSize)]
+    public async Task<ActionResult> PostDecisionElementStats(string serializedStats)
+    {
+        var userResult = await GetUserFromToken();
+        if (userResult.Result != null)
+        {
+            // If there's a result, it's an error response.
+            _logger.LogInformation("User result is null");
+            return userResult.Result;
+        }
+
+        var user = userResult.Value!;
+        return await PostDecisionElementStats(serializedStats, user);
+    }
+    
+    protected abstract Task<ActionResult> PostDecisionElementStats(string serializedStats, User user);
+    
     protected static FileStreamResult CreateFileStream(string filePath)
     {
         var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
@@ -204,4 +262,7 @@ public abstract class DecisionElementController<TDto>(
             EnableRangeProcessing = true
         };
     }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    protected static void CreateParentDirectories(string filepath) => Directory.CreateDirectory(Directory.GetParent(filepath)!.FullName);
 }
