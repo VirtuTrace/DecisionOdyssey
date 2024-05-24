@@ -1,7 +1,7 @@
 ﻿using System.Text.Json.Serialization;
 using Common.Enums;
 
-namespace Client.Models.DecisionElements.DecisionMatrix;
+namespace Common.DataStructures;
 
 public class DecisionMatrixMetadata
 {

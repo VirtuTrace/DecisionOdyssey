@@ -5,9 +5,9 @@ namespace Client.Models.DecisionElements.StatTracking;
 
 public class ImageTracking(Stopwatch stopwatch) : MediaInteractionTracker(stopwatch)
 {
-    public override ImageTrackingJson ToJson()
+    public override ImageTrackingData ExtractData()
     {
-        return new ImageTrackingJson
+        return new ImageTrackingData
         {
             StartTimes = StartTimes,
             EndTimes = EndTimes

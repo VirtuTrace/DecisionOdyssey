@@ -5,9 +5,9 @@ namespace Client.Models.DecisionElements.StatTracking;
 
 public class TextTracking(Stopwatch stopwatch) : MediaInteractionTracker(stopwatch)
 {
-    public override TextTrackingJson ToJson()
+    public override TextTrackingData ExtractData()
     {
-        return new TextTrackingJson
+        return new TextTrackingData
         {
             StartTimes = StartTimes,
             EndTimes = EndTimes

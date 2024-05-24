@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using Client.Models.DecisionElements.StatTracking;
+using Common.DataStructures;
 
 namespace Client.Models.DecisionElements.DecisionMatrix.Stats;
 
@@ -57,5 +58,18 @@ public class MatrixStatsCell
         ImageTracking?.RecordEndInteraction();
         AudioTracking?.RecordEndInteraction();
         TextTracking?.RecordEndInteraction();
+    }
+    
+    public DecisionMatrixStatsCellData ExtractData()
+    {
+        return new DecisionMatrixStatsCellData
+        {
+            VideoTracking = VideoTracking?.ExtractData(),
+            ImageTracking = ImageTracking?.ExtractData(),
+            AudioTracking = AudioTracking?.ExtractData(),
+            TextTracking = TextTracking?.ExtractData(),
+            Interactions = Interactions,
+            Rating = Rating
+        };
     }
 }

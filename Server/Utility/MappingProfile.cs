@@ -1,5 +1,5 @@
 ﻿using AutoMapper;
-using Client.Models.DecisionElements.DecisionMatrix;
+using Common.DataStructures;
 using Common.DataStructures.Dtos;
 using Common.DataStructures.Dtos.DecisionElements;
 using Common.DataStructures.Dtos.DecisionElements.Stats;

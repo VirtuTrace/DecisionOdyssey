@@ -1,4 +1,5 @@
 ﻿using System.IO.Compression;
+using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
@@ -6,6 +7,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using Client.Models.DecisionElements.DecisionMatrix;
 using Client.Utility;
+using Common.DataStructures;
 using Common.DataStructures.Dtos.DecisionElements;
 using Common.DataStructures.Dtos.DecisionElements.Stats;
 using Common.DataStructures.Http.Requests;
@@ -15,73 +17,83 @@ namespace Client.Singletons;
 
 public partial class HttpUtility(ApplicationState applicationState)
 {
+    private static JsonSerializerOptions Options { get; } = new()
+    {
+            PropertyNameCaseInsensitive = true
+    };
+
     [GeneratedRegex(@"entry_(\d+)_(\d+)_(image|audio|video|text)")]
     private static partial Regex EntryRegex();
-    
+
     [GeneratedRegex("prompt_(image|audio|video|text)")]
     private static partial Regex PromptRegex();
 
-    private static JsonSerializerOptions? _options;
-    
-    private static JsonSerializerOptions Options =>
-        _options ??= new JsonSerializerOptions
-        {
-            PropertyNameCaseInsensitive = true
-        };
-
-    public async Task<List<DecisionMatrixDto>> GetMatrices(HttpClient http)
+    private async Task<HttpResponseMessage> ExecuteGetRequest(HttpClient http, string endpoint)
     {
         while (true)
         {
             http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", applicationState.AccessToken);
-            var response = await http.GetAsync("api/DecisionMatrix");
-            var matrices = new List<DecisionMatrixDto>();
+            var response = await http.GetAsync(endpoint);
             if (response.IsSuccessStatusCode)
             {
-                var content = await response.Content.ReadAsStringAsync();
-                #if DEBUG
-                Console.WriteLine(content);
-                #endif
-
-                var deserializedMatrices = JsonSerializer.Deserialize<List<DecisionMatrixDto>>(content, Options);
-
-                if (deserializedMatrices is not null)
-                {
-                    matrices.AddRange(deserializedMatrices);
-                }
-                else
-                {
-                    await Console.Error.WriteLineAsync("Failed to deserialize matrices");
-                }
+                return response;
             }
-            else
+
+            if (response.StatusCode != HttpStatusCode.Unauthorized)
             {
-                if (await CheckAndRefreshToken(http, response))
-                {
-                    Console.WriteLine("Retrying");
-                    continue;
-                }
-
-                await Console.Error.WriteLineAsync("Failed to get matrices");
+                return response;
             }
 
-            return matrices;
+            Console.WriteLine("Failed to execute get request");
+            if (await CheckAndRefreshToken(http, response))
+            {
+                Console.WriteLine("Retrying request");
+                continue;
+            }
+
+            return response;
         }
+    }
+
+    public async Task<List<DecisionMatrixDto>> GetMatrices(HttpClient http)
+    {
+        var response = await ExecuteGetRequest(http, "api/DecisionMatrix");
+        if (!response.IsSuccessStatusCode)
+        {
+            await Console.Error.WriteLineAsync("Failed to get matrices");
+            return [];
+        }
+        
+        var matrices = new List<DecisionMatrixDto>();
+        var deserializedMatrices = await response.Content.ReadFromJsonAsync<List<DecisionMatrixDto>>();
+        if (deserializedMatrices is not null)
+        {
+            matrices.AddRange(deserializedMatrices);
+        }
+        else
+        {
+            await Console.Error.WriteLineAsync("Failed to deserialize matrices");
+        }
+        
+        return matrices;
     }
 
     private async Task<bool> CheckAndRefreshToken(HttpClient http, HttpResponseMessage response)
     {
+        //Console.WriteLine("Checking token");
         var headers = response.Headers;
         if (headers.TryGetValues("token-expired", out var values) && values.Contains("true"))
         {
+            //Console.WriteLine("Token expired");
             return await RefreshToken(http);
         }
 
         return false;
     }
-    
+
     private async Task<bool> RefreshToken(HttpClient http)
     {
+        Console.WriteLine("Refreshing token");
         var tokenRequest = new TokenRequest {
             AccessToken = applicationState.RefreshToken
         };
@@ -105,13 +117,11 @@ public partial class HttpUtility(ApplicationState applicationState)
         
         return true;
     }
-    
+
     public async Task<Matrix> GetMatrix(HttpClient http, Guid matrixGuid)
     {
         var endpoint = $"api/DecisionMatrix/{matrixGuid}/data";
-        http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", applicationState.AccessToken);
-        var response = await http.GetAsync(endpoint);
-
+        var response = await ExecuteGetRequest(http, endpoint);
         var matrix = new Matrix();
         if (response.IsSuccessStatusCode)
         {
@@ -126,7 +136,7 @@ public partial class HttpUtility(ApplicationState applicationState)
 
         return matrix;
     }
-    
+
     private static async Task<Matrix> ReadArchive(ZipArchive archive)
     {
         var metadataStream = archive.GetEntry("metadata.json")!.Open();
@@ -199,7 +209,7 @@ public partial class HttpUtility(ApplicationState applicationState)
                 break;
         }
     }
-    
+
     public static (MultipartContent, MemoryStream) CreateMultiPartContent(byte[] archive, string jsonContent, string filename)
     {
         var formContent = new MultipartFormDataContent("f84f617add024da5a7dbc216a37dae7f"); // Randomly generated
@@ -221,9 +231,9 @@ public partial class HttpUtility(ApplicationState applicationState)
         return (formContent, memoryStream);
     }
 
-    public static async Task<List<DecisionMatrixStatsDto>> GetMatrixStats(HttpClient http, Guid matrixGuid)
+    public async Task<List<DecisionMatrixStatsDto>> GetMatrixStats(HttpClient http, Guid matrixGuid)
     {
-        var response = await http.GetAsync($"api/DecisionMatrix/{matrixGuid}/stats/data");
+        var response = await ExecuteGetRequest(http, $"api/DecisionMatrix/{matrixGuid}/stats/data");
         if(!response.IsSuccessStatusCode)
         {
             await Console.Error.WriteLineAsync("Failed to get matrix stats");

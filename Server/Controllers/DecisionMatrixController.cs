@@ -1,6 +1,6 @@
 ﻿using System.Text.Json;
+using System.Text.Json.Nodes;
 using AutoMapper;
-using Client.Models.DecisionElements.DecisionMatrix;
 using Common.DataStructures;
 using Common.DataStructures.Dtos.DecisionElements;
 using Common.DataStructures.Dtos.DecisionElements.Stats;
@@ -132,8 +132,7 @@ public class DecisionMatrixController(
             return MethodNotAllowed("Update existing decision matrix instead using PUT");
         }
 
-        var filepath = Path.Combine(Directory.GetCurrentDirectory(), "BlobStorage", DecisionElementDirectoryName,
-            user.Id.ToString(), decisionMatrixDto.Name + ".zip");
+        var filepath = GetElementFilePath(user, decisionMatrixDto.Name);
 
         // File exists on disk, but not in database // Could overwrite file on disk
         if (System.IO.File.Exists(filepath))
@@ -310,26 +309,33 @@ public class DecisionMatrixController(
         return decisionMatrixStatsData;
     }
 
-    protected override async Task<ActionResult> PostDecisionElementStats(string serializedStats, User user)
+    protected override async Task<ActionResult> PostDecisionElementStats(JsonNode serializedStats, User user)
     {
-        var decisionMatrixStatsData = JsonSerializer.Deserialize<DecisionMatrixStatsData>(serializedStats);
+        var decisionMatrixStatsData = serializedStats.Deserialize<DecisionMatrixStatsData>(JsonOptions);
         if (decisionMatrixStatsData is null)
         {
             _logger.LogInformation("Failed to deserialize decision matrix stats data");
             return BadRequest();
         }
 
-        var decisionMatrix = await GetDecisionMatrix(decisionMatrixStatsData.MatrixGuid);
+        var decisionMatrix = await GetDecisionMatrix(decisionMatrixStatsData.ElementGuid);
         if (decisionMatrix is null)
         {
-            _logger.LogInformation("Decision matrix with GUID {guid} not found", decisionMatrixStatsData.MatrixGuid);
+            _logger.LogInformation("Decision matrix with GUID {guid} not found", decisionMatrixStatsData.ElementGuid);
             return NotFound();
         }
 
-        var filepath = Path.Combine(Directory.GetCurrentDirectory(), "BlobStorage", DecisionElementDirectoryName,
-            user.Id.ToString(), decisionMatrix.Id.ToString(), "Stats", decisionMatrixStatsData.Guid + ".json");
+        var filepath = GetStatsFilePath(user, decisionMatrix, decisionMatrixStatsData);
         CreateParentDirectories(filepath);
-        await System.IO.File.WriteAllTextAsync(filepath, serializedStats);
+        var serializedStatsString = serializedStats.ToJsonString();
+        if(System.IO.File.Exists(filepath))
+        {
+            _logger.LogWarning("Decision matrix stats data for decision matrix with GUID {guid} already exists",
+                decisionMatrixStatsData.Guid);
+            return BadRequest();
+        }
+        
+        await System.IO.File.WriteAllTextAsync(filepath, serializedStatsString);
         _logger.LogInformation("Decision matrix stats data for decision matrix with GUID {guid} saved",
             decisionMatrixStatsData.Guid);
 

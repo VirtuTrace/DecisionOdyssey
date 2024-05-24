@@ -25,50 +25,51 @@ builder.Services.AddDbContext<ApplicationDbContext>(opt =>
 });
 
 builder.Services.AddIdentity<User, ApplicationRole>(options =>
-    {
-        options.User.RequireUniqueEmail = true;
-        options.Password.RequireDigit = true;
-        options.Password.RequireLowercase = true;
-        options.Password.RequireUppercase = true;
-        options.Password.RequireNonAlphanumeric = true;
-        options.Password.RequiredLength = 15;
-        options.Password.RequiredUniqueChars = 1;
-    })
-    .AddEntityFrameworkStores<ApplicationDbContext>()
-    .AddDefaultTokenProviders();
+        {
+            options.User.RequireUniqueEmail = true;
+            options.Password.RequireDigit = true;
+            options.Password.RequireLowercase = true;
+            options.Password.RequireUppercase = true;
+            options.Password.RequireNonAlphanumeric = true;
+            options.Password.RequiredLength = 15;
+            options.Password.RequiredUniqueChars = 1;
+        })
+       .AddEntityFrameworkStores<ApplicationDbContext>()
+       .AddDefaultTokenProviders();
 
 builder.Services.AddAuthentication(options =>
-    {
-        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-        options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-        options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
-    })
-    .AddJwtBearer(options =>
-    {
-        options.TokenValidationParameters = new TokenValidationParameters
         {
-            // Token validation parameters
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = configuration["Jwt:Issuer"],
-            ValidAudience = configuration["Jwt:Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(configuration["Jwt:Key"]!))
-        };
-        
-        options.Events = new JwtBearerEvents
+            options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+            options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+            options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+        })
+       .AddJwtBearer(options =>
         {
-            OnAuthenticationFailed = context =>
+            options.TokenValidationParameters = new TokenValidationParameters
             {
-                if (context.Exception.GetType() == typeof(SecurityTokenExpiredException))
+                // Token validation parameters
+                ValidateIssuer = true,
+                ValidateAudience = true,
+                ValidateLifetime = true,
+                ValidateIssuerSigningKey = true,
+                ValidIssuer = configuration["Jwt:Issuer"],
+                ValidAudience = configuration["Jwt:Audience"],
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(configuration["Jwt:Key"]!))
+            };
+
+            options.Events = new JwtBearerEvents
+            {
+                OnAuthenticationFailed = context =>
                 {
-                    context.Response.Headers["Token-Expired"] = "true";
+                    if (context.Exception.GetType() == typeof(SecurityTokenExpiredException))
+                    {
+                        context.Response.Headers["Token-Expired"] = "true";
+                    }
+
+                    return Task.CompletedTask;
                 }
-                return Task.CompletedTask;
-            }
-        };
-    });
+            };
+        });
 builder.Services.AddAuthorization();
 
 builder.Services.AddCors(options =>
@@ -78,6 +79,7 @@ builder.Services.AddCors(options =>
         policyBuilder =>
         {
             policyBuilder.WithOrigins("https://localhost:7266")
+                         .WithExposedHeaders("Token-Expired")
                          .AllowAnyHeader()
                          .AllowAnyMethod();
         });
@@ -106,14 +108,13 @@ builder.Services.AddSwaggerGen();
 #if DEBUG
 
 Log.Logger = new LoggerConfiguration()
-    .MinimumLevel.Override("Microsoft", LogEventLevel.Debug)
-    .Enrich.FromLogContext()
-    .WriteTo.Console()
-    .WriteTo.File("Logs/server.log", rollingInterval: RollingInterval.Day)
-    .CreateLogger();
+            .MinimumLevel.Override("Microsoft", LogEventLevel.Debug)
+            .Enrich.FromLogContext()
+            .WriteTo.Console()
+            .WriteTo.File("Logs/server.log", rollingInterval: RollingInterval.Day)
+            .CreateLogger();
 
 #else
-
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Override("Microsoft", LogEventLevel.Information)
     .Enrich.FromLogContext()

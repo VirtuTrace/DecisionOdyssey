@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using Common.DataStructures;
 
 namespace Client.Models.DecisionElements.DecisionMatrix.Stats;
 
@@ -15,7 +16,7 @@ public class MatrixStats
     private readonly Stopwatch _stopwatch = new();
     
     public int RowCount => Stats.Length;
-    public int ColumnCount => Stats[0].Length;
+    public int ColumnCount => Stats[0].Length; // Matrix should not be jagged
     public long ElapsedMilliseconds
     {
         get
@@ -44,5 +45,32 @@ public class MatrixStats
         }
         
         _stopwatch.Start();
+    }
+
+    public DecisionMatrixStatsData ExtractData()
+    {
+        var cellData = new DecisionMatrixStatsCellData[RowCount][];
+        for (var row = 0; row < RowCount; row++)
+        {
+            cellData[row] = new DecisionMatrixStatsCellData[ColumnCount];
+            for (var column = 0; column < ColumnCount; column++)
+            {
+                cellData[row][column] = Stats[row][column].ExtractData();
+            }
+        }
+        
+        return new DecisionMatrixStatsData
+        {
+            ColumnCount = ColumnCount,
+            Decision = Decision,
+            ElapsedMilliseconds = ElapsedMilliseconds,
+            Guid = Guid,
+            ElementGuid = MatrixGuid,
+            ParticipantEmail = ParticipantEmail,
+            RowCount = RowCount,
+            RowRatings = RowRatings,
+            StartTime = StartTime,
+            Stats = cellData
+        };
     }
 }

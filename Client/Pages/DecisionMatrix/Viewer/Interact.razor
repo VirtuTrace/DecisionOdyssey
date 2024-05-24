@@ -10,6 +10,7 @@
 
 @using Client.Models.DecisionElements.DecisionMatrix.Stats
 @using Client.Components
+@using Common.DataStructures
 @using Common.DataStructures.Http.Requests
 
 @inherits Client.Pages.Base.AuthenticatedPage
@@ -254,7 +255,7 @@
         {
             Snackbar.Add("Decision Made!", Severity.Success);
             Stats.Decision = col;
-            var json = Stats;
+            var json = Stats.ExtractData();
             var response = await Http.PostAsJsonAsync("api/DecisionMatrix/stats", json);
             if (!response.IsSuccessStatusCode)
             {

@@ -5,9 +5,9 @@ namespace Client.Models.DecisionElements.StatTracking;
 
 public class AudioTracking(Stopwatch stopwatch) : PlayableMediaTracking(stopwatch)
 {
-    public override AudioTrackingJson ToJson()
+    public override AudioTrackingData ExtractData()
     {
-        return new AudioTrackingJson
+        return new AudioTrackingData
         {
             StartTimes = StartTimes,
             EndTimes = EndTimes

@@ -1,5 +1,6 @@
 ﻿using System.IO.Compression;
 using System.Text.Json;
+using Common.DataStructures;
 using Common.Enums;
 
 namespace Client.Models.DecisionElements.DecisionMatrix;

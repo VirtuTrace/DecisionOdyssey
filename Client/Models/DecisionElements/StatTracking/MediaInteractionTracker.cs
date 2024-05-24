@@ -18,5 +18,5 @@ public abstract class MediaInteractionTracker(Stopwatch stopwatch)
         EndTimes.Add(stopwatch.ElapsedMilliseconds);
     }
 
-    public abstract MediaInteractionTrackerJson ToJson();
+    public abstract MediaInteractionTrackerData ExtractData();
 }

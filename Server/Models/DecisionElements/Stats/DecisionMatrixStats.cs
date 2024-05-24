@@ -22,13 +22,11 @@ public class DecisionMatrixStats
 
     public long MatrixId { get; set; }
     
-    [JsonIgnore]
     [ForeignKey("MatrixId")]
     public DecisionMatrix Matrix { get; set; } = null!;
     
     public long ParticipantId { get; set; }
     
-    [JsonIgnore]
     [ForeignKey("ParticipantId")]
     public User Participant { get; set; } = null!;
 }

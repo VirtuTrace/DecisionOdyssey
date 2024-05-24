@@ -1,4 +1,6 @@
 ﻿using System.Runtime.CompilerServices;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using AutoMapper;
 using Common.DataStructures;
 using Common.DataStructures.Dtos.DecisionElements;
@@ -8,7 +10,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Server.Contexts;
 using Server.Models;
-using Server.Models.DecisionElements.Stats;
+using Server.Models.DecisionElements;
 using Server.Utility;
 
 namespace Server.Controllers;
@@ -26,6 +28,13 @@ public abstract class DecisionElementController<TDto>(
 {
     private readonly ILogger _logger = logger;
 
+    // While this does get duplicated across each generic implementation, it is fine since it is never modified.
+    // ReSharper disable once StaticMemberInGenericType
+    protected static JsonSerializerOptions JsonOptions { get; } = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
+    
     protected abstract string DecisionElementDirectoryName { get; }
     
     [HttpGet]
@@ -227,7 +236,7 @@ public abstract class DecisionElementController<TDto>(
     
     [HttpPost("stats")]
     [RequestSizeLimit(ControllerConfig.MaxFileSize)]
-    public async Task<ActionResult> PostDecisionElementStats(string serializedStats)
+    public async Task<ActionResult> PostDecisionElementStats([FromBody] JsonNode serializedStats)
     {
         var userResult = await GetUserFromToken();
         if (userResult.Result != null)
@@ -241,7 +250,7 @@ public abstract class DecisionElementController<TDto>(
         return await PostDecisionElementStats(serializedStats, user);
     }
     
-    protected abstract Task<ActionResult> PostDecisionElementStats(string serializedStats, User user);
+    protected abstract Task<ActionResult> PostDecisionElementStats(JsonNode serializedStats, User user);
     
     protected static FileStreamResult CreateFileStream(string filePath)
     {
@@ -265,4 +274,16 @@ public abstract class DecisionElementController<TDto>(
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected static void CreateParentDirectories(string filepath) => Directory.CreateDirectory(Directory.GetParent(filepath)!.FullName);
+
+    protected string GetStatsFilePath(User user, DecisionElement decisionElement, DecisionElementStatsData decisionElementStatsData)
+    {
+        return Path.Combine(Directory.GetCurrentDirectory(), "BlobStorage", DecisionElementDirectoryName,
+            user.Id.ToString(), decisionElement.Id.ToString(), "Stats", decisionElementStatsData.Guid + ".json");
+    }
+
+    protected string GetElementFilePath(User user, string filename)
+    {
+        return Path.Combine(Directory.GetCurrentDirectory(), "BlobStorage", DecisionElementDirectoryName,
+            user.Id.ToString(), filename + ".zip");
+    }
 }
