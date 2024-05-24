@@ -98,8 +98,6 @@ builder.Services.AddCors(options =>
     #endif
 });
 
-builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
-
 builder.Services.AddRouting(options => options.LowercaseUrls = true);
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();

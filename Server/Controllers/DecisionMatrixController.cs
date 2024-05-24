@@ -1,6 +1,6 @@
-﻿using System.Text.Json;
+﻿using System.Runtime.CompilerServices;
+using System.Text.Json;
 using System.Text.Json.Nodes;
-using AutoMapper;
 using Common.DataStructures;
 using Common.DataStructures.Dtos.DecisionElements;
 using Common.DataStructures.Dtos.DecisionElements.Stats;
@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore;
 using Server.Contexts;
 using Server.Models;
 using Server.Models.DecisionElements;
-using Server.Models.DecisionElements.Stats;
+using Server.Utility;
 
 namespace Server.Controllers;
 
@@ -21,12 +21,10 @@ namespace Server.Controllers;
 public class DecisionMatrixController(
     ApplicationDbContext context,
     ILogger<DecisionMatrixController> logger,
-    UserManager<User> userManager,
-    IMapper mapper)
-    : DecisionElementController<DecisionMatrixDto>(context, logger, userManager, mapper)
+    UserManager<User> userManager)
+    : DecisionElementController<DecisionMatrixDto>(context, logger, userManager)
 {
     private readonly ApplicationDbContext _context = context;
-    private readonly IMapper _mapper = mapper;
     private readonly ILogger _logger = logger;
 
     protected override string DecisionElementDirectoryName => "Matrices";
@@ -36,7 +34,8 @@ public class DecisionMatrixController(
         await _context.Entry(user).Collection(u => u.CreatedDecisionMatrices).LoadAsync();
         await _context.Entry(user).Collection(u => u.AccessibleDecisionMatrices).LoadAsync();
         var decisionMatrices = user.CreatedDecisionMatrices.Concat(user.AccessibleDecisionMatrices);
-        var decisionMatrixDtos = _mapper.Map<List<DecisionMatrixDto>>(decisionMatrices);
+        //var decisionMatrixDtos = _mapper.Map<List<DecisionMatrixDto>>(decisionMatrices);
+        var decisionMatrixDtos = ToDtos(decisionMatrices);
 
         _logger.LogInformation("Returning {numberDecisionMatrices} decision matrices for user {userId}",
             decisionMatrixDtos.Count, user.Id);
@@ -47,7 +46,8 @@ public class DecisionMatrixController(
     {
         await _context.Entry(user).Collection(u => u.CreatedDecisionMatrices).LoadAsync();
         var decisionMatrices = user.CreatedDecisionMatrices;
-        var decisionMatrixDtos = _mapper.Map<List<DecisionMatrixDto>>(decisionMatrices);
+        //var decisionMatrixDtos = _mapper.Map<List<DecisionMatrixDto>>(decisionMatrices);
+        var decisionMatrixDtos = ToDtos(decisionMatrices);
 
         _logger.LogInformation("Returning {numberDecisionMatrices} decision matrices created by user {userId}",
             decisionMatrixDtos.Count, user.Id);
@@ -58,7 +58,8 @@ public class DecisionMatrixController(
     {
         await _context.Entry(user).Collection(u => u.AccessibleDecisionMatrices).LoadAsync();
         var decisionMatrices = user.AccessibleDecisionMatrices;
-        var decisionMatrixDtos = _mapper.Map<List<DecisionMatrixDto>>(decisionMatrices);
+        //var decisionMatrixDtos = _mapper.Map<List<DecisionMatrixDto>>(decisionMatrices);
+        var decisionMatrixDtos = ToDtos(decisionMatrices);
 
         _logger.LogInformation("Returning {numberDecisionMatrices} decision matrices accessible by user {userId}",
             decisionMatrixDtos.Count, user.Id);
@@ -81,7 +82,7 @@ public class DecisionMatrixController(
             return Forbid();
         }
 
-        var decisionMatrixDto = _mapper.Map<DecisionMatrixDto>(decisionMatrix);
+        var decisionMatrixDto = decisionMatrix.ToDto();
         _logger.LogInformation("Returning decision matrix with GUID {guid}", guid);
         return decisionMatrixDto;
     }
@@ -142,7 +143,7 @@ public class DecisionMatrixController(
         }
 
         Directory.CreateDirectory(Directory.GetParent(filepath)!.FullName);
-        decisionMatrix = _mapper.Map<DecisionMatrix>(decisionMatrixDto);
+        decisionMatrix = decisionMatrixDto.ToModel();
         decisionMatrix.UserId = user.Id;
         decisionMatrix.Filepath = filepath;
 
@@ -261,10 +262,10 @@ public class DecisionMatrixController(
         }
 
         await _context.Entry(decisionMatrix).Collection(dm => dm.DecisionMatrixStats).LoadAsync();
-        var decisionMatrixStatsDtos = _mapper
-                                     .Map<List<DecisionMatrixStatsDto>>(decisionMatrix.DecisionMatrixStats)
-                                     .Cast<DecisionElementStatsDto>()
-                                     .ToList();
+        var decisionMatrixStatsDtos = decisionMatrix.DecisionMatrixStats
+                                                    .Select(dms => dms.ToDto())
+                                                    .Cast<DecisionElementStatsDto>()
+                                                    .ToList();
         _logger.LogInformation(
             "Returning {numberDecisionMatrixStats} decision matrix stats for decision matrix with GUID {guid}",
             decisionMatrix.DecisionMatrixStats.Count, guid);
@@ -346,5 +347,11 @@ public class DecisionMatrixController(
     {
         return _context.DecisionMatrices
                        .SingleOrDefaultAsync(de => de.Guid == guid);
+    }
+    
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static List<DecisionMatrixDto> ToDtos(IEnumerable<DecisionMatrix> decisionMatrices)
+    {
+        return decisionMatrices.Select(dm => dm.ToDto()).ToList();
     }
 }

@@ -1,7 +1,6 @@
 ﻿using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using AutoMapper;
 using Common.DataStructures;
 using Common.DataStructures.Dtos.DecisionElements;
 using Common.DataStructures.Dtos.DecisionElements.Stats;
@@ -21,8 +20,7 @@ namespace Server.Controllers;
 public abstract class DecisionElementController<TDto>(
     ApplicationDbContext context,
     ILogger logger,
-    UserManager<User> userManager,
-    IMapper mapper)
+    UserManager<User> userManager)
     : ApplicationControllerBase(context, logger, userManager)
     where TDto : DecisionElementDto
 {

@@ -2,7 +2,6 @@
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
-using AutoMapper;
 using Common.DataStructures.Dtos;
 using Common.DataStructures.Http.Requests;
 using Common.DataStructures.Http.Responses;
@@ -13,6 +12,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Server.Contexts;
 using Server.Models;
+using Server.Utility;
 using LoginRequest = Microsoft.AspNetCore.Identity.Data.LoginRequest;
 
 namespace Server.Controllers;
@@ -23,8 +23,7 @@ public class UsersController(
     ApplicationDbContext context,
     IConfiguration configuration,
     ILogger<UsersController> logger,
-    UserManager<User> userManager,
-    IMapper mapper) : ApplicationControllerBase(context, logger, userManager)
+    UserManager<User> userManager) : ApplicationControllerBase(context, logger, userManager)
 {
     private const int RefreshTokenLifetime = 7; // Days
     private const int GuestRefreshTokenLifetime = 1; // Days
@@ -40,7 +39,8 @@ public class UsersController(
     public async Task<ActionResult<IEnumerable<UserDto>>> GetUsers()
     {
         var users = await _context.Users.ToListAsync();
-        return Ok(mapper.Map<IEnumerable<UserDto>>(users));
+        var userDtos = users.Select(u => u.ToDto());
+        return Ok(userDtos);
     }
     
     // DELETE: api/User/34e5705e-f901-45a5-9c88-e645984d2931
