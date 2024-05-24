@@ -196,7 +196,7 @@ else
     private List<DecisionMatrixDto> Matrices { get; } = [];
     private List<List<MatrixCellBlobCache>> CellCache { get; } = []; 
     private DecisionMatrixDto? SelectedMatrix { get; set; }
-    private Matrix? Matrix { get; set; }
+    private DecisionMatrix? Matrix { get; set; }
     private TimeSpan? _time = new TimeSpan(01, 00, 00);
     private bool EditingExistingMatrix { get; set; }
     private Guid MatrixGuid { get; set; }
@@ -229,7 +229,7 @@ else
 
         if (SelectedMatrix.Name == CreateMatrix)
         {
-            Matrix = new Matrix();
+            Matrix = new DecisionMatrix();
             Matrix.AddColumn();
             Matrix.AddRow();
             CellCache.Add([new MatrixCellBlobCache()]);

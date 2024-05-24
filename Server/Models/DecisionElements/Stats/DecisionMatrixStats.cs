@@ -13,7 +13,7 @@ public class DecisionMatrixStats
     public int RowCount { get; init; }
     public int ColumnCount { get; init; }
     [StringLength(255)] // Max length of a file path on Windows
-    public string Filepath { get; init; } = null!;
+    public string Filepath { get; set; } = null!;
     [StringLength(255)]
     public string ParticipantEmail { get; init; } = null!;
     public DateTime StartTime { get; init; }

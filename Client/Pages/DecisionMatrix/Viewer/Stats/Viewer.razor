@@ -1,0 +1,214 @@
+﻿@page "/viewer/matrixstats/{ElementGuid:guid}"
+
+@using Client.JSWrappers
+@using Client.Models.DecisionElements.DecisionMatrix
+@using Client.Singletons
+@using Client.Stats
+@using Client.Utility
+@using Common.DataStructures
+@using Common.DataStructures.Dtos.DecisionElements.Stats
+@using Common.Enums
+
+@inherits Client.Pages.Base.AuthenticatedPage
+
+@inject HttpClient Http
+@inject ApplicationState ApplicationState
+@inject HttpUtility HttpUtility
+@inject FileHandler FileHandler
+
+<h3>Stats View</h3>
+
+@if (SelectedMatrixStats is null)
+{
+    <h3>Select Matrix Stats to View</h3>
+    @if (MatrixStats.Count == 0)
+    {
+        <MudSelect T="string" Label="Matrices" Variant="Variant.Outlined" AnchorOrigin="Origin.BottomCenter">
+            <MudSelectItem Value=@("No stats available")/>
+        </MudSelect>
+    }
+    else
+    {
+        <MudSelect T="DecisionMatrixStatsData" @bind-Value="@SelectedMatrixStats" ToStringFunc="@_converter" Label="Matrices" Variant="Variant.Outlined" AnchorOrigin="Origin.BottomCenter">
+            @foreach (var matrix in MatrixStats)
+            {
+                <MudSelectItem Value="@matrix"/>
+            }
+        </MudSelect>
+    }
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@SelectMatrixStats">Select</MudButton>
+    <MudButton Variant="Variant.Filled" Color="Color.Tertiary" OnClick="@DownloadMatrixStats">Download Stats</MudButton>
+}
+else
+{
+    <MudSimpleTable Style="overflow-x: auto; margin-bottom: 2.5em;">
+        <thead>
+        <tr>
+            <th style="border-right: 1px solid #cdd0d4;">@SelectedMatrix.Name</th>
+            @foreach (var columnName in SelectedMatrix.ColumnNames)
+            {
+                <th style="text-align: center;">@columnName</th>
+            }
+        </tr>
+        </thead>
+        <tbody>
+        @foreach(var (row, rowName) in SelectedMatrix.RowNames.Enumerate())
+        {
+            <tr>
+                @if(SelectedMatrix.Features.HasFlag(MatrixFeatures.RowRating))
+                {
+                    <th style="border-right: 1px solid #cdd0d4; white-space: pre;">
+                        @($"{rowName}\nRating: {SelectedMatrixStats.RowRatings![row]}")
+                    </th>
+                }
+                else
+                {
+                    <th style="border-right: 1px solid #cdd0d4;">
+                        @rowName
+                    </th>
+                }
+                @foreach (var rowCell in SelectedMatrixStats[row])
+                {
+                    var noInteractionColor = ApplicationState.DarkMode ? "#2D2D2D" : "#D2D2D2";
+                    var backgroundColor = rowCell.Interactions.Count == 0 ? noInteractionColor : "#FFFFFF";
+                    <td style=@($"text-align: center; vertical-align: middle; background-color: {backgroundColor};")>
+                        <MudText Typo="Typo.body2">Interactions: @rowCell.Interactions.Count</MudText>
+                        @if (rowCell.VideoTracking is not null)
+                        {
+                            <MudText Typo="Typo.body2">Video Interactions: @rowCell.VideoTracking.StartTimes.Count</MudText>
+                        }
+                        @if (rowCell.ImageTracking is not null)
+                        {
+                            <MudText Typo="Typo.body2">Image Interactions: @rowCell.ImageTracking.StartTimes.Count</MudText>
+                        }
+                        @if (rowCell.AudioTracking is not null)
+                        {
+                            <MudText Typo="Typo.body2">Audio Interactions: @rowCell.AudioTracking.StartTimes.Count</MudText>
+                        }
+                        @if (rowCell.TextTracking is not null)
+                        {
+                            <MudText Typo="Typo.body2">Text Interactions: @rowCell.TextTracking.StartTimes.Count</MudText>
+                        }
+                        @if (SelectedMatrix.Features.HasFlag(MatrixFeatures.ColumnRating))
+                        {
+                            <MudText Typo="Typo.body2">Rating: @rowCell.Rating</MudText>
+                        }
+                    </td>
+                }
+            </tr>
+        }
+        </tbody>
+    </MudSimpleTable>
+    if (SelectedMatrix.Features.HasFlag(MatrixFeatures.RowRating))
+    {
+        <MudGrid Style="margin-bottom: 2.5em;">
+            <MudItem xs="3">
+                <MudSimpleTable>
+                    <thead>
+                    <tr>
+                        <th style="border-right: 1px solid #cdd0d4;">Criterion</th>
+                        <th style="text-align: center;">Rating</th>
+                    </tr>
+                    </thead>
+                    @foreach (var (i, rowName) in SelectedMatrix.RowNames.Enumerate())
+                    {
+                        <tbody>
+                        <tr>
+                            <th style="border-right: 1px solid #cdd0d4;">@rowName</th>
+                            <td style="text-align: center; vertical-align: middle;">@SelectedMatrixStats.RowRatings![i]</td>
+                        </tr>
+                        </tbody>
+                    }
+                </MudSimpleTable>
+            </MudItem>
+            <MudItem xs="3"></MudItem>
+            <MudItem xs="6"></MudItem>
+        </MudGrid>
+    
+    }
+    <MudGrid>
+        <MudItem xs="3">
+            <MudSimpleTable>
+                <thead>
+                <tr>
+                    <th style="border-right: 1px solid #cdd0d4; text-align: center;" colspan="2">Other Stats</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <th style="border-right: 1px solid #cdd0d4;">Participant</th>
+                    <td style="text-align: center; vertical-align: middle;">@SelectedMatrixStats.ParticipantEmail</td>
+                </tr>
+                <tr>
+                    <th style="border-right: 1px solid #cdd0d4;">Date Completed</th>
+                    <td style="text-align: center; vertical-align: middle;">@SelectedMatrixStats.StartTime.ToString("G")</td>
+                </tr>
+                <tr>
+                    <th style="border-right: 1px solid #cdd0d4;">Time Elapsed</th>
+                    @{
+                        var time = TimeSpan.FromMilliseconds(SelectedMatrixStats.ElapsedMilliseconds);
+                        <td style="text-align: center; vertical-align: middle;">@time.ToString(@"hh\:mm\:ss\.fff")</td>
+                    }
+                </tr>
+                <tr>
+                    <th style="border-right: 1px solid #cdd0d4;">Max Allotted Time</th>
+                    @if (SelectedMatrix.Features.HasFlag(MatrixFeatures.Timer))
+                    {
+                        var allottedTime = TimeSpan.FromSeconds(SelectedMatrix.AllottedTime);
+                        <td style="text-align: center; vertical-align: middle;">@allottedTime.ToString(@"hh\:mm\:ss")</td>
+                    }
+                    else
+                    {
+                        <td style="text-align: center; vertical-align: middle;">No Time Limit</td>
+                    }
+                </tr>
+                <tr>
+                    <th style="border-right: 1px solid #cdd0d4;">Final Decision</th>
+                    <td style="text-align: center; vertical-align: middle;">@SelectedMatrix.ColumnNames[SelectedMatrixStats.Decision]</td>
+                </tr>
+                </tbody>
+            </MudSimpleTable>
+        </MudItem>
+        <MudItem xs="3"></MudItem>
+        <MudItem xs="6"></MudItem>
+    </MudGrid>
+}
+
+@code {
+    [Parameter] public Guid ElementGuid { get; set; }
+
+    private DecisionMatrix SelectedMatrix { get; set; } = null!;
+    private DecisionMatrixStatsData? SelectedMatrixStats { get; set; }
+    private List<DecisionMatrixStatsData> MatrixStats { get; set; } = [];
+    private readonly Func<DecisionMatrixStatsData, string> _converter = dm => $"{dm.StartTime} - {dm.Guid}";
+
+    protected override async Task<bool> OnInitializedAsync()
+    {
+        var valid = await base.OnInitializedAsync();
+        if (!valid)
+        {
+            return false;
+        }
+
+        ApplicationState.SelectedMatrix ??= await HttpUtility.GetMatrix(Http, ElementGuid);
+        SelectedMatrix = ApplicationState.SelectedMatrix;
+        MatrixStats = await HttpUtility.GetMatrixStats(Http, ApplicationState.SelectedMatrix.Guid);
+
+        return true;
+    }
+
+    private void SelectMatrixStats()
+    {
+        // TODO: Implement
+    }
+
+    private void DownloadMatrixStats()
+    {
+        var statsCreator = new StatsCreator();
+        statsCreator.AddStats(SelectedMatrix, MatrixStats);
+        var memoryStream = statsCreator.Save();
+        var bytes = memoryStream.ToArray();
+        FileHandler.DownloadZipAsync(bytes, $"{SelectedMatrix.Name}_stats.zip");
+        statsCreator.Dispose();
+    }
+}

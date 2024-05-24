@@ -12,6 +12,11 @@ public static class MappingExtensionMethods
 {
     #region User Mapping
 
+    /// <summary>
+    ///   Converts a UserDto object to a User object.
+    /// </summary>
+    /// <param name="user">The UserDto object to convert</param>
+    /// <returns>The converted User object</returns>
     public static UserDto ToDto(this User user)
     {
         return new UserDto
@@ -28,6 +33,11 @@ public static class MappingExtensionMethods
 
     #region Decision Matrix Mapping
 
+    /// <summary>
+    ///     Converts a DecisionMatrix object to a DecisionMatrixDto object.
+    /// </summary>
+    /// <param name="matrix">The DecisionMatrix object to convert</param>
+    /// <returns>The converted DecisionMatrixDto object</returns>
     public static DecisionMatrixDto ToDto(this DecisionMatrix matrix)
     {
         return new DecisionMatrixDto
@@ -43,6 +53,11 @@ public static class MappingExtensionMethods
         };
     }
     
+    /// <summary>
+    ///     Converts a DecisionMatrix object to a DecisionMatrixDto object. Note: Id, UserId, and Filepath are not set.
+    /// </summary>
+    /// <param name="matrixDto">The DecisionMatrixDto object to convert</param>
+    /// <returns>The converted DecisionMatrix object</returns>
     public static DecisionMatrix ToModel(this DecisionMatrixDto matrixDto)
     {
         return new DecisionMatrix
@@ -58,6 +73,11 @@ public static class MappingExtensionMethods
         };
     }
 
+    /// <summary>
+    ///     Converts a DecisionMatrixMetadata object to a DecisionMatrix object. Note: Id, UserId, and Filepath are not set.
+    /// </summary>
+    /// <param name="matrixMetadata">The DecisionMatrixMetadata object to convert</param>
+    /// <returns>The converted DecisionMatrix object</returns>
     public static DecisionMatrix ToModel(this DecisionMatrixMetadata matrixMetadata)
     {
         return new DecisionMatrix
@@ -77,6 +97,11 @@ public static class MappingExtensionMethods
 
     #region Decision Matrix Stats Mapping
 
+    /// <summary>
+    ///     Converts a DecisionMatrixStats object to a DecisionMatrixStatsDto object.
+    /// </summary>
+    /// <param name="stats">The DecisionMatrixStats object to convert</param>
+    /// <returns>The converted DecisionMatrixStatsDto object</returns>
     public static DecisionMatrixStatsDto ToDto(this DecisionMatrixStats stats)
     {
         return new DecisionMatrixStatsDto
@@ -92,6 +117,11 @@ public static class MappingExtensionMethods
         };
     }
     
+    /// <summary>
+    ///     Converts a DecisionMatrixStatsDto object to a DecisionMatrixStats object. Note: Id, MatrixId, ParticipantId, and Filepath are not set.
+    /// </summary>
+    /// <param name="statsDto">The DecisionMatrixStatsDto object to convert</param>
+    /// <returns>The converted DecisionMatrixStats object</returns>
     public static DecisionMatrixStats ToModel(this DecisionMatrixStatsDto statsDto)
     {
         return new DecisionMatrixStats
@@ -103,6 +133,26 @@ public static class MappingExtensionMethods
             RowCount = statsDto.RowCount,
             ColumnCount = statsDto.ColumnCount,
             Decision = statsDto.Decision
+        };
+    }
+
+    /// <summary>
+    ///     Converts a DecisionMatrixStatsData object to a DecisionMatrixStats object. Note: Id, MatrixId, ParticipantId, and Filepath are not set.
+    /// </summary>
+    /// <param name="statsData">The DecisionMatrixStatsData object to convert</param>
+    /// <returns>The converted DecisionMatrixStats object</returns>
+    public static DecisionMatrixStats ToModel(this DecisionMatrixStatsData statsData)
+    {
+        return new DecisionMatrixStats
+        {
+            Guid = statsData.Guid,
+            //ElementGuid = statsData.ElementGuid,
+            ParticipantEmail = statsData.ParticipantEmail,
+            StartTime = statsData.StartTime,
+            ElapsedMilliseconds = statsData.ElapsedMilliseconds,
+            RowCount = statsData.RowCount,
+            ColumnCount = statsData.ColumnCount,
+            Decision = statsData.Decision
         };
     }
 

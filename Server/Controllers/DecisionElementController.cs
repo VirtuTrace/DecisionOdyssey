@@ -9,7 +9,6 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Server.Contexts;
 using Server.Models;
-using Server.Models.DecisionElements;
 using Server.Utility;
 
 namespace Server.Controllers;
@@ -273,10 +272,10 @@ public abstract class DecisionElementController<TDto>(
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected static void CreateParentDirectories(string filepath) => Directory.CreateDirectory(Directory.GetParent(filepath)!.FullName);
 
-    protected string GetStatsFilePath(User user, DecisionElement decisionElement, DecisionElementStatsData decisionElementStatsData)
+    protected string GetStatsFilePath(User user, DecisionElementStatsData decisionElementStatsData)
     {
         return Path.Combine(Directory.GetCurrentDirectory(), "BlobStorage", DecisionElementDirectoryName,
-            user.Id.ToString(), decisionElement.Id.ToString(), "Stats", decisionElementStatsData.Guid + ".json");
+            user.Id.ToString(), "Stats", decisionElementStatsData.Guid + ".json");
     }
 
     protected string GetElementFilePath(User user, string filename)

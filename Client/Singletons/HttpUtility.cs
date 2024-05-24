@@ -118,11 +118,11 @@ public partial class HttpUtility(ApplicationState applicationState)
         return true;
     }
 
-    public async Task<Matrix> GetMatrix(HttpClient http, Guid matrixGuid)
+    public async Task<DecisionMatrix> GetMatrix(HttpClient http, Guid matrixGuid)
     {
         var endpoint = $"api/DecisionMatrix/{matrixGuid}/data";
         var response = await ExecuteGetRequest(http, endpoint);
-        var matrix = new Matrix();
+        var matrix = new DecisionMatrix();
         if (response.IsSuccessStatusCode)
         {
             await using var stream = await response.Content.ReadAsStreamAsync();
@@ -137,7 +137,7 @@ public partial class HttpUtility(ApplicationState applicationState)
         return matrix;
     }
 
-    private static async Task<Matrix> ReadArchive(ZipArchive archive)
+    private static async Task<DecisionMatrix> ReadArchive(ZipArchive archive)
     {
         var metadataStream = archive.GetEntry("metadata.json")!.Open();
         var metadataBytes = await metadataStream.GetBytesAsync();
@@ -147,7 +147,7 @@ public partial class HttpUtility(ApplicationState applicationState)
             throw new Exception("Failed to deserialize metadata");
         }
 
-        var matrix = new Matrix();
+        var matrix = new DecisionMatrix();
         matrix.FromMetadata(metadata);
 
         foreach (var entry in archive.Entries)
@@ -176,7 +176,7 @@ public partial class HttpUtility(ApplicationState applicationState)
             else
             {
                 await Console.Error.WriteLineAsync($"Failed to match entry: {entry.Name}");
-                return new Matrix();
+                return new DecisionMatrix();
             }
         }
 
@@ -231,7 +231,7 @@ public partial class HttpUtility(ApplicationState applicationState)
         return (formContent, memoryStream);
     }
 
-    public async Task<List<DecisionMatrixStatsDto>> GetMatrixStats(HttpClient http, Guid matrixGuid)
+    public async Task<List<DecisionMatrixStatsData>> GetMatrixStats(HttpClient http, Guid matrixGuid)
     {
         var response = await ExecuteGetRequest(http, $"api/DecisionMatrix/{matrixGuid}/stats/data");
         if(!response.IsSuccessStatusCode)
@@ -240,7 +240,7 @@ public partial class HttpUtility(ApplicationState applicationState)
             return [];
         }
         
-        var content = await response.Content.ReadFromJsonAsync<List<DecisionMatrixStatsDto>>();
+        var content = await response.Content.ReadFromJsonAsync<List<DecisionMatrixStatsData>>();
         if (content is null)
         {
             await Console.Error.WriteLineAsync("Failed to deserialize matrix stats");

@@ -5,7 +5,7 @@ using Common.Enums;
 
 namespace Client.Models.DecisionElements.DecisionMatrix;
 
-public class Matrix : DecisionElement
+public class DecisionMatrix : DecisionElement
 {
     public List<string> RowNames { get; } = [];
     public List<string> ColumnNames { get; } = [];

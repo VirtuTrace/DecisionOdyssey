@@ -31,7 +31,7 @@ public class MatrixStats
 
     public MatrixStatsCell this[int row, int col] => Stats[row][col];
     
-    public MatrixStats(Matrix matrix)
+    public MatrixStats(DecisionMatrix matrix)
     {
         MatrixGuid = matrix.Guid;
         Stats = new MatrixStatsCell[matrix.RowCount][];

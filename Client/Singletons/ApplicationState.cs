@@ -30,7 +30,7 @@ public class ApplicationState
     public string AccessToken { get; private set; } = string.Empty;
     public string RefreshToken { get; private set; } = string.Empty;
     public string Email { get; private set; } = string.Empty;
-    public Matrix? SelectedMatrix { get; set; }
+    public DecisionMatrix? SelectedMatrix { get; set; }
     public int[]? RowRatings { get; set; }
 
     public bool GuestLogin => Email.StartsWith("Guest");

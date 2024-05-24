@@ -11,6 +11,7 @@ using Microsoft.EntityFrameworkCore;
 using Server.Contexts;
 using Server.Models;
 using Server.Models.DecisionElements;
+using Server.Models.DecisionElements.Stats;
 using Server.Utility;
 
 namespace Server.Controllers;
@@ -326,7 +327,7 @@ public class DecisionMatrixController(
             return NotFound();
         }
 
-        var filepath = GetStatsFilePath(user, decisionMatrix, decisionMatrixStatsData);
+        var filepath = GetStatsFilePath(user, decisionMatrixStatsData);
         CreateParentDirectories(filepath);
         var serializedStatsString = serializedStats.ToJsonString();
         if(System.IO.File.Exists(filepath))
@@ -335,6 +336,24 @@ public class DecisionMatrixController(
                 decisionMatrixStatsData.Guid);
             return BadRequest();
         }
+
+        var decisionMatrixStats = await GetDecisionMatrixStats(decisionMatrixStatsData.Guid);
+        if (decisionMatrixStats is not null)
+        {
+            _logger.LogWarning("Decision matrix stats for decision matrix with GUID {guid} already exists",
+                decisionMatrixStatsData.Guid);
+            return BadRequest();
+        }
+        
+        decisionMatrixStats = decisionMatrixStatsData.ToModel();
+        decisionMatrixStats.Filepath = filepath;
+        decisionMatrixStats.Matrix = decisionMatrix;
+        decisionMatrixStats.Participant = user;
+        
+        _context.DecisionMatrixStats.Add(decisionMatrixStats);
+        await _context.SaveChangesAsync();
+        _logger.LogInformation("Decision matrix stats data for decision matrix with GUID {guid} created",
+            decisionMatrixStatsData.Guid);
         
         await System.IO.File.WriteAllTextAsync(filepath, serializedStatsString);
         _logger.LogInformation("Decision matrix stats data for decision matrix with GUID {guid} saved",
@@ -343,10 +362,18 @@ public class DecisionMatrixController(
         return Ok(new { Message = "Decision matrix stats data uploaded successfully" });
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private Task<DecisionMatrix?> GetDecisionMatrix(Guid guid)
     {
         return _context.DecisionMatrices
                        .SingleOrDefaultAsync(de => de.Guid == guid);
+    }
+    
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private Task<DecisionMatrixStats?> GetDecisionMatrixStats(Guid guid)
+    {
+        return _context.DecisionMatrixStats
+                       .SingleOrDefaultAsync(dms => dms.Guid == guid);
     }
     
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

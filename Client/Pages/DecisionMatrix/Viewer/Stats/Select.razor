@@ -1,0 +1,54 @@
+﻿@page "/viewer/matrix/stats/"
+
+@using Client.Singletons
+@using Common.DataStructures.Dtos.DecisionElements
+
+@inherits Client.Pages.Base.AuthenticatedPage
+
+@inject HttpClient Http
+@inject ApplicationState ApplicationState
+@inject NavigationManager NavigationManager
+@inject HttpUtility HttpUtility
+
+<h3>Select Matrix</h3>
+<MudSelect T="DecisionMatrixDto" @bind-Value="@SelectedMatrix" ToStringFunc="@_converter" Label="Matrices" Variant="Variant.Outlined" AnchorOrigin="Origin.BottomCenter">
+    @foreach (var matrix in Matrices)
+    {
+    <MudSelectItem Value="@matrix" />
+    }
+</MudSelect>
+<MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@SelectMatrix">Select</MudButton>
+
+
+@code {
+    private List<DecisionMatrixDto> Matrices { get; } = [];
+    private DecisionMatrixDto? SelectedMatrix { get; set; }
+    private readonly Func<DecisionMatrixDto, string> _converter = dm => dm.Name;
+
+    protected override async Task<bool> OnInitializedAsync()
+    {
+        var valid = await base.OnInitializedAsync();
+        if (!valid)
+        {
+            return false;
+        }
+        var matrices = await HttpUtility.GetMatrices(Http);
+        Matrices.AddRange(matrices);
+        StateHasChanged();
+        return true;
+    }
+
+    private async void SelectMatrix()
+    {
+        if (SelectedMatrix is null)
+        {
+            return;
+        }
+
+        ApplicationState.SelectedMatrix = await HttpUtility.GetMatrix(Http, SelectedMatrix.Guid);
+        SelectedMatrix = null;
+        var matrix = ApplicationState.SelectedMatrix;
+        
+        NavigationManager.NavigateTo($"viewer/stats/{matrix.Guid}");
+    }
+}
