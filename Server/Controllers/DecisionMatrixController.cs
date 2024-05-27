@@ -295,7 +295,7 @@ public class DecisionMatrixController(
         foreach (var filepath in filepaths)
         {
             var serializedData = await System.IO.File.ReadAllTextAsync(filepath);
-            var statsData = JsonSerializer.Deserialize<DecisionMatrixStatsData>(serializedData);
+            var statsData = JsonSerializer.Deserialize<DecisionMatrixStatsData>(serializedData, JsonOptions);
             if (statsData is null)
             {
                 _logger.LogWarning("Failed to deserialize decision matrix stats data: {filepath}", filepath);

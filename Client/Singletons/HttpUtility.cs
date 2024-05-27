@@ -5,6 +5,7 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using Client.Models.DecisionElements;
 using Client.Models.DecisionElements.DecisionMatrix;
 using Client.Utility;
 using Common.DataStructures;
@@ -17,7 +18,7 @@ namespace Client.Singletons;
 
 public partial class HttpUtility(ApplicationState applicationState)
 {
-    private static JsonSerializerOptions Options { get; } = new()
+    private static JsonSerializerOptions JsonOptions { get; } = new()
     {
             PropertyNameCaseInsensitive = true
     };
@@ -65,7 +66,7 @@ public partial class HttpUtility(ApplicationState applicationState)
         }
         
         var matrices = new List<DecisionMatrixDto>();
-        var deserializedMatrices = await response.Content.ReadFromJsonAsync<List<DecisionMatrixDto>>();
+        var deserializedMatrices = await response.Content.ReadFromJsonAsync<List<DecisionMatrixDto>>(JsonOptions);
         if (deserializedMatrices is not null)
         {
             matrices.AddRange(deserializedMatrices);
@@ -100,7 +101,7 @@ public partial class HttpUtility(ApplicationState applicationState)
         var response = await http.PostAsJsonAsync("api/users/refresh", tokenRequest);
         if (response.IsSuccessStatusCode)
         {
-            var authResponse = await response.Content.ReadFromJsonAsync<AuthResponse>();
+            var authResponse = await response.Content.ReadFromJsonAsync<AuthResponse>(JsonOptions);
             if (authResponse is null)
             {
                 await Console.Error.WriteLineAsync("Failed to deserialize refresh token");
@@ -141,7 +142,7 @@ public partial class HttpUtility(ApplicationState applicationState)
     {
         var metadataStream = archive.GetEntry("metadata.json")!.Open();
         var metadataBytes = await metadataStream.GetBytesAsync();
-        var metadata = JsonSerializer.Deserialize<DecisionMatrixMetadata>(metadataBytes);
+        var metadata = JsonSerializer.Deserialize<DecisionMatrixMetadata>(metadataBytes, JsonOptions);
         if (metadata is null)
         {
             throw new Exception("Failed to deserialize metadata");
@@ -185,29 +186,35 @@ public partial class HttpUtility(ApplicationState applicationState)
 
     private static async Task ParseEntry(ZipArchiveEntry entry, MatrixCell cell, string dataType)
     {
-        await using var entryStream = entry.Open();
         switch (dataType) // TODO: Ensure that files have extensions
         {
             case "image":
                 var image = cell.Image;
-                image.Data = await entryStream.GetBytesAsync();
-                image.Extension = Path.GetExtension(entry.Name);
+                await PopulateMediaData(image, entry);
                 break;
             case "audio":
                 var audio = cell.Audio;
-                audio.Data = await entryStream.GetBytesAsync();
-                audio.Extension = Path.GetExtension(entry.Name);
+                await PopulateMediaData(audio, entry);
                 break;
             case "video":
                 var video = cell.Video;
-                video.Data = await entryStream.GetBytesAsync();
-                video.Extension = Path.GetExtension(entry.Name);
+                await PopulateMediaData(video, entry);
                 break;
             case "text":
+            {
+                await using var entryStream = entry.Open();
                 var stringBytes = await entryStream.GetBytesAsync();
                 cell.Text = Encoding.UTF8.GetString(stringBytes);
                 break;
+            }
         }
+    }
+
+    private static async Task PopulateMediaData(MediaData media, ZipArchiveEntry entry)
+    {
+        await using var entryStream = entry.Open();
+        media.Data = await entryStream.GetBytesAsync();
+        media.Extension = Path.GetExtension(entry.Name);
     }
 
     public static (MultipartContent, MemoryStream) CreateMultiPartContent(byte[] archive, string jsonContent, string filename)
@@ -240,7 +247,7 @@ public partial class HttpUtility(ApplicationState applicationState)
             return [];
         }
         
-        var content = await response.Content.ReadFromJsonAsync<List<DecisionMatrixStatsData>>();
+        var content = await response.Content.ReadFromJsonAsync<List<DecisionMatrixStatsData>>(JsonOptions);
         if (content is null)
         {
             await Console.Error.WriteLineAsync("Failed to deserialize matrix stats");
