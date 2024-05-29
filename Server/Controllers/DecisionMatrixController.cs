@@ -247,7 +247,7 @@ public class DecisionMatrixController(
     }
 
     protected override async Task<ActionResult<List<DecisionElementStatsDto>>> GetDecisionElementStats(
-        Guid guid, User user)
+        Guid guid, User user, DateTime? start = null, DateTime? end = null)
     {
         var decisionMatrix = await GetDecisionMatrix(guid);
         if (decisionMatrix is null)
@@ -264,6 +264,7 @@ public class DecisionMatrixController(
 
         await _context.Entry(decisionMatrix).Collection(dm => dm.DecisionMatrixStats).LoadAsync();
         var decisionMatrixStatsDtos = decisionMatrix.DecisionMatrixStats
+                                                    .Where(dms => DecisionElementWithinTimeRange(dms, start, end))
                                                     .Select(dms => dms.ToDto())
                                                     .Cast<DecisionElementStatsDto>()
                                                     .ToList();
@@ -274,7 +275,7 @@ public class DecisionMatrixController(
     }
 
     protected override async Task<ActionResult<List<DecisionMatrixStatsData>>> GetDecisionElementStatsData(
-        Guid guid, User user)
+        Guid guid, User user, DateTime? start = null, DateTime? end = null)
     {
         var decisionMatrix = await GetDecisionMatrix(guid);
         if (decisionMatrix is null)
@@ -290,7 +291,9 @@ public class DecisionMatrixController(
         }
         
         await _context.Entry(decisionMatrix).Collection(dm => dm.DecisionMatrixStats).LoadAsync();
-        var filepaths = decisionMatrix.DecisionMatrixStats.Select(dms => dms.Filepath);
+        var filepaths = decisionMatrix.DecisionMatrixStats
+                                      .Where(dms => DecisionElementWithinTimeRange(dms, start, end))
+                                      .Select(dms => dms.Filepath);
         var decisionMatrixStatsData = new List<DecisionMatrixStatsData>();
         foreach (var filepath in filepaths)
         {

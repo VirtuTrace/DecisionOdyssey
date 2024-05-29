@@ -1,5 +1,4 @@
 ﻿using System.Runtime.CompilerServices;
-using System.Text.Json;
 using System.Text.Json.Nodes;
 using Common.DataStructures;
 using Common.DataStructures.Dtos.DecisionElements;
@@ -9,6 +8,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Server.Contexts;
 using Server.Models;
+using Server.Models.DecisionElements.Stats;
 using Server.Utility;
 
 namespace Server.Controllers;
@@ -24,13 +24,6 @@ public abstract class DecisionElementController<TDto>(
     where TDto : DecisionElementDto
 {
     private readonly ILogger _logger = logger;
-
-    // While this does get duplicated across each generic implementation, it is fine since it is never modified.
-    // ReSharper disable once StaticMemberInGenericType
-    protected static JsonSerializerOptions JsonOptions { get; } = new()
-    {
-        PropertyNameCaseInsensitive = true
-    };
     
     protected abstract string DecisionElementDirectoryName { get; }
     
@@ -197,7 +190,7 @@ public abstract class DecisionElementController<TDto>(
     
     [Authorize(Roles = "SuperAdmin,Admin,Researcher")]
     [HttpGet("{guid:guid}/stats")]
-    public async Task<ActionResult<List<DecisionElementStatsDto>>> GetDecisionElementStats(Guid guid)
+    public async Task<ActionResult<List<DecisionElementStatsDto>>> GetDecisionElementStats(Guid guid, DateTime? start = null, DateTime? end = null)
     {
         var userResult = await GetUserFromToken();
         if (userResult.Result != null)
@@ -208,14 +201,14 @@ public abstract class DecisionElementController<TDto>(
         
         var user = userResult.Value!;
         
-        return await GetDecisionElementStats(guid, user);
+        return await GetDecisionElementStats(guid, user, start, end);
     }
     
-    protected abstract Task<ActionResult<List<DecisionElementStatsDto>>> GetDecisionElementStats(Guid guid, User user);
+    protected abstract Task<ActionResult<List<DecisionElementStatsDto>>> GetDecisionElementStats(Guid guid, User user, DateTime? start = null, DateTime? end = null);
     
     [Authorize(Roles = "SuperAdmin,Admin,Researcher")]
     [HttpGet("{guid:guid}/stats/data")]
-    public async Task<ActionResult<List<DecisionMatrixStatsData>>> GetDecisionElementStatsData(Guid guid)
+    public async Task<ActionResult<List<DecisionMatrixStatsData>>> GetDecisionElementStatsData(Guid guid, DateTime? start = null, DateTime? end = null)
     {
         var userResult = await GetUserFromToken();
         if (userResult.Result != null)
@@ -226,10 +219,10 @@ public abstract class DecisionElementController<TDto>(
         
         var user = userResult.Value!;
         
-        return await GetDecisionElementStatsData(guid, user);
+        return await GetDecisionElementStatsData(guid, user, start, end);
     }
     
-    protected abstract Task<ActionResult<List<DecisionMatrixStatsData>>> GetDecisionElementStatsData(Guid guid, User user);
+    protected abstract Task<ActionResult<List<DecisionMatrixStatsData>>> GetDecisionElementStatsData(Guid guid, User user, DateTime? start = null, DateTime? end = null);
     
     [HttpPost("stats")]
     [RequestSizeLimit(ControllerConfig.MaxFileSize)]
@@ -282,5 +275,20 @@ public abstract class DecisionElementController<TDto>(
     {
         return Path.Combine(Directory.GetCurrentDirectory(), "BlobStorage", DecisionElementDirectoryName,
             user.Id.ToString(), filename + ".zip");
+    }
+    
+    protected bool DecisionElementWithinTimeRange(DecisionElementStats decisionElementStatsData, DateTime? start, DateTime? end)
+    {
+        if (start is not null && decisionElementStatsData.StartTime < start)
+        {
+            return false;
+        }
+
+        if (end is not null && decisionElementStatsData.StartTime > end)
+        {
+            return false;
+        }
+
+        return true;
     }
 }

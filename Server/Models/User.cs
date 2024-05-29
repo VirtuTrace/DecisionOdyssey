@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.AspNetCore.Identity;
 using Server.Models.DecisionElements;
 using Server.Models.DecisionElements.Stats;
@@ -23,6 +24,9 @@ public class User : IdentityUser<long>
     
     [StringLength(255)]
     public required string LastName { get; set; }
+    
+    [NotMapped]
+    public bool IsLockedOut => LockoutEnd is not null && LockoutEnd > DateTimeOffset.Now;
     
     public ICollection<RefreshToken> RefreshTokens { get; set; } = null!;
     

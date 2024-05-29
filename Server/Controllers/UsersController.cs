@@ -17,6 +17,7 @@ using LoginRequest = Microsoft.AspNetCore.Identity.Data.LoginRequest;
 
 namespace Server.Controllers;
 
+[Authorize]
 [Route("api/[controller]")]
 [ApiController]
 public class UsersController(
@@ -28,6 +29,8 @@ public class UsersController(
     private const int RefreshTokenLifetime = 7; // Days
     private const int GuestRefreshTokenLifetime = 1; // Days
     private const int AccessTokenLifetime = 60; // Minutes
+    private const int MaxFailedAttempts = 5;
+    private const int TimeoutDuration = 5; // Minutes
     
     private readonly ApplicationDbContext _context = context;
     private readonly UserManager<User> _userManager = userManager;
@@ -45,24 +48,39 @@ public class UsersController(
     
     // DELETE: api/User/34e5705e-f901-45a5-9c88-e645984d2931
     [Authorize(Roles = "SuperAdmin,Admin")]
-    [HttpDelete("{id:guid}")]
-    public async Task<IActionResult> DeleteUser(Guid id)
+    [HttpDelete("{guid:guid}")]
+    public async Task<IActionResult> DeleteUser(Guid guid)
     {
-        var user = await GetUserByGuid(id);
+        var managerUserResult = await GetUserFromToken();
+        if (managerUserResult.Result is not null)
+        {
+            return managerUserResult.Result;
+        }
+        
+        var managerUser = managerUserResult.Value!;
+        
+        var user = await GetUserByGuid(guid);
         if (user is null)
         {
-            logger.LogInformation("User {id} not found", id);
+            logger.LogInformation("User {guid} not found", guid);
             return NotFound();
+        }
+
+        if (!await UserCanBeManaged(managerUser, user))
+        {
+            logger.LogInformation("User {user} cannot be managed by requesting user {requestingUser}", user.Guid, managerUser.Guid);
+            return Forbid();
         }
 
         _context.Users.Remove(user);
         await _context.SaveChangesAsync();
-        logger.LogInformation("User {id} deleted", id);
+        logger.LogInformation("User {guid} deleted", guid);
 
         return Ok();
     }
 
     // POST: api/User/register
+    [AllowAnonymous]
     [HttpPost("register")]
     public async Task<IActionResult> Register(RegisterRequest request)
     {
@@ -95,6 +113,7 @@ public class UsersController(
     }
 
     // POST: api/User/login
+    [AllowAnonymous]
     [HttpPost("login")]
     public async Task<ActionResult<AuthResponse>> Login(LoginRequest request)
     {
@@ -105,10 +124,28 @@ public class UsersController(
             return NotFound();
         }
 
+        if (user.IsLockedOut)
+        {
+            logger.LogInformation("User {email} is locked out", request.Email);
+            return Unauthorized();
+        }
+        
         if (!PasswordHasher.VerifyHashedPassword(user, user.PasswordHash, request.Password)
                            .Equals(PasswordVerificationResult.Success))
         {
             logger.LogInformation("Invalid password for user {email}", request.Email);
+            if (!user.LockoutEnabled)
+            {
+                return Unauthorized();
+            }
+
+            user.AccessFailedCount++;
+            if (user.AccessFailedCount >= MaxFailedAttempts)
+            {
+                logger.LogInformation("User {email} has been locked out", request.Email);
+                user.LockoutEnd = DateTimeOffset.UtcNow.AddMinutes(TimeoutDuration);
+            }
+            await _userManager.UpdateAsync(user);
             return Unauthorized();
         }
 
@@ -122,6 +159,13 @@ public class UsersController(
             logger.LogInformation("User {email} has role {role}", user.Email, role);
         }
 
+        if (user.LockoutEnabled)
+        {
+            user.AccessFailedCount = 0;
+            user.LockoutEnd = null;
+            await _userManager.UpdateAsync(user);
+        }
+
         logger.LogInformation("User {email} logged in", request.Email);
         return Ok(new AuthResponse
         {
@@ -131,6 +175,7 @@ public class UsersController(
     }
     
     // POST: api/User/guest-login
+    [AllowAnonymous]
     [HttpPost("guest-login")]
     public async Task<ActionResult<GuestAuthResponse>> GuestLogin()
     {
@@ -243,6 +288,28 @@ public class UsersController(
         await _context.SaveChangesAsync();
         logger.LogInformation("User {email} logged out of all devices", user.Email);
         
+        return Ok();
+    }
+    
+    [HttpPost("change-password")]
+    public async Task<IActionResult> ChangePassword(ChangePasswordRequest request)
+    {
+        var userResult = await GetUserFromToken();
+        if (userResult.Result is not null)
+        {
+            return userResult.Result;
+        }
+
+        var user = userResult.Value!;
+        var result = await _userManager.ChangePasswordAsync(user, request.CurrentPassword, request.NewPassword);
+        if (!result.Succeeded)
+        {
+            logger.LogInformation("Failed to change password for user {email}", user.Email);
+            var errors = result.Errors.Select(e => e.Description);
+            return BadRequest(new { errors });
+        }
+
+        logger.LogInformation("Changed password for user {email}", user.Email);
         return Ok();
     }
     

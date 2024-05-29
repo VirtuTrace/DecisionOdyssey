@@ -22,4 +22,10 @@ public class ApplicationRole : IdentityRole<long>
     public ApplicationRole(string roleName) : base(roleName)
     {
     }
+    
+    
+    public static bool IsValidRole(string role)
+    {
+        return RolePriority.ContainsKey(role);
+    }
 }
