@@ -21,11 +21,42 @@ public class AdminController(ApplicationDbContext context, ILogger logger, UserM
 
     #region User Control
 
-    [HttpGet("users")]
+    [HttpGet("user")]
     public async Task<ActionResult<List<UserDto>>> GetUsers()
     {
         var users = await _context.Users.Select(u => u.ToDto()).ToListAsync();
         return Ok(users);
+    }
+    
+    [HttpDelete("user/{guid:guid}")]
+    public async Task<IActionResult> DeleteUser(Guid guid)
+    {
+        var managerUserResult = await GetUserFromToken();
+        if (managerUserResult.Result is not null)
+        {
+            return managerUserResult.Result;
+        }
+        
+        var managerUser = managerUserResult.Value!;
+        
+        var user = await GetUserByGuid(guid);
+        if (user is null)
+        {
+            logger.LogInformation("User {guid} not found", guid);
+            return NotFound();
+        }
+
+        if (!await UserCanBeManaged(managerUser, user))
+        {
+            logger.LogInformation("User {user} cannot be managed by requesting user {requestingUser}", user.Guid, managerUser.Guid);
+            return Forbid();
+        }
+
+        _context.Users.Remove(user);
+        await _context.SaveChangesAsync();
+        logger.LogInformation("User {guid} deleted", guid);
+
+        return Ok();
     }
     
     [HttpPost("user/{guid:guid}/role")]

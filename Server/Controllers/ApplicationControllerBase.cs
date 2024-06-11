@@ -81,7 +81,7 @@ public abstract class ApplicationControllerBase(
         return RolePriority(userHighestRole) > RolePriority(managerHighestRole); // Lower number means higher priority
     }
 
-    private static string GetHighestRole(IEnumerable<string> roles)
+    protected static string GetHighestRole(IEnumerable<string> roles)
     {
         var highestRole = GuestRole;
         var highestPriority = RolePriority(highestRole);

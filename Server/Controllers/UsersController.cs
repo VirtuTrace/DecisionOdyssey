@@ -47,7 +47,6 @@ public class UsersController(
     }
     
     // DELETE: api/User/34e5705e-f901-45a5-9c88-e645984d2931
-    [Authorize(Roles = "SuperAdmin,Admin")]
     [HttpDelete("{guid:guid}")]
     public async Task<IActionResult> DeleteUser(Guid guid)
     {
@@ -66,7 +65,7 @@ public class UsersController(
             return NotFound();
         }
 
-        if (!await UserCanBeManaged(managerUser, user))
+        if (user.Guid != managerUser.Guid)
         {
             logger.LogInformation("User {user} cannot be managed by requesting user {requestingUser}", user.Guid, managerUser.Guid);
             return Forbid();
@@ -311,6 +310,21 @@ public class UsersController(
 
         logger.LogInformation("Changed password for user {email}", user.Email);
         return Ok();
+    }
+    
+    [HttpGet("role")]
+    public async Task<ActionResult<string>> GetHighestRole()
+    {
+        var userResult = await GetUserFromToken();
+        if (userResult.Result is not null)
+        {
+            return userResult.Result;
+        }
+        
+        var user = userResult.Value!;
+        var roles = await _userManager.GetRolesAsync(user);
+        var highestRole = GetHighestRole(roles);
+        return Ok(highestRole);
     }
     
     // POST: api/User/refresh

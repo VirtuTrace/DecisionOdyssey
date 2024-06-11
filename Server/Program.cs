@@ -153,3 +153,5 @@ app.MapControllers();
 await Initialization.Initialize(app.Services);
 
 app.Run();
+
+public partial class Program { } // so it can be referenced from tests
