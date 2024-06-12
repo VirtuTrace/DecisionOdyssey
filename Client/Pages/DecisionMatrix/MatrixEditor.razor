@@ -14,6 +14,7 @@
 @using Color = MudBlazor.Color
 @using Row = DocumentFormat.OpenXml.Spreadsheet.Row
 @using Common.DataStructures.Http.Responses
+@using Client.Excel
 @using Client.Components
 
 @inherits Client.Pages.Base.AuthenticatedPage
@@ -193,6 +194,12 @@ else
 
 @code {
     private const string CreateMatrix = "Create new matrix";
+    
+    private static readonly HashSet<string> TrueStringValues = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "true", "yes", "on", "enabled", "1", "active", "t", "y", "enable"
+    };
+    
     private List<DecisionMatrixDto> Matrices { get; } = [];
     private List<List<MatrixCellBlobCache>> CellCache { get; } = []; 
     private DecisionMatrixDto? SelectedMatrix { get; set; }
@@ -200,6 +207,9 @@ else
     private TimeSpan? _time = new TimeSpan(01, 00, 00);
     private bool EditingExistingMatrix { get; set; }
     private Guid MatrixGuid { get; set; }
+    
+    private SharedStringTable? SharedStringTable { get; set; }
+    
     private readonly Func<DecisionMatrixDto, string> _converter = dm => dm.Name;
     
     protected override async Task<bool> OnInitializedAsync()
@@ -351,6 +361,13 @@ else
         if (!result.Canceled)
         {
             Matrix!.Reset();
+            foreach (var row in CellCache)
+            {
+                foreach (var col in row)
+                {
+                    await col.RevokeUrls(BlobCreator);
+                }
+            }
         }
     }
 
@@ -439,7 +456,7 @@ else
         return true;
     }
 
-    private void CreateMatrixFromTemplate(IBrowserFile? file)
+    private async void CreateMatrixFromTemplate(IBrowserFile? file)
     {
         if (file is null)
         {
@@ -453,7 +470,9 @@ else
         }
         
         var stream = file.OpenReadStream();
-        var spreadsheet = SpreadsheetDocument.Open(stream, false);
+        var memoryStream = new MemoryStream();
+        await stream.CopyToAsync(memoryStream);
+        var spreadsheet = SpreadsheetDocument.Open(memoryStream, false);
         var workbookPart = spreadsheet.WorkbookPart;
         if (workbookPart is null)
         {
@@ -468,8 +487,9 @@ else
             return;
         }
 
+        SharedStringTable = workbookPart.SharedStringTablePart?.SharedStringTable;
         var title = "";
-        int numRows;
+        var numRows = 0;
         var numCols = 0;
         string[] rowNames = [];
         string[] colNames = [];
@@ -477,6 +497,7 @@ else
         var rowIndex = 0;
         var readerState = ReaderState.ReadingTitle;
         var reader = OpenXmlReader.Create(worksheetPart);
+        var options = new MatrixOptions();
         while (reader.Read())
         {
             if (reader.ElementType != typeof(Row))
@@ -492,15 +513,28 @@ else
                     readerState = ReaderState.ReadingNumRows;
                     break;
                 case ReaderState.ReadingNumRows:
-                    numRows = ReadDimension(row);
+                    numRows = ReadDimension(row, 2);
                     rowNames = new string[numRows];
                     readerState = ReaderState.ReadingNumCols;
                     break;
                 case ReaderState.ReadingNumCols:
-                    numCols = ReadDimension(row);
+                    numCols = ReadDimension(row, 3);
+                    readerState = ReaderState.ReadingOptions;
+                    break;
+                case ReaderState.ReadingOptions:
+                    options = ReadOptions(row);
+                    Console.WriteLine(options.Features);
                     readerState = ReaderState.Skip;
                     break;
                 case ReaderState.Skip:
+                    textData = new string[numRows, numCols];
+                    for(var r = 0; r < numRows; r++)
+                    {
+                        for(var c = 0; c < numCols; c++)
+                        {
+                            textData[r, c] = "";
+                        }
+                    }
                     readerState = ReaderState.ReadingColNames;
                     break;
                 case ReaderState.ReadingColNames:
@@ -516,6 +550,8 @@ else
                     throw new ArgumentOutOfRangeException();
             }
         }
+        
+        // Create matrix from template
         Matrix!.Reset();
         Matrix!.Name = title;
         foreach (var (i, name) in colNames.Enumerate())
@@ -551,9 +587,27 @@ else
                 Matrix[row, col].Text = textData[row, col];
             }
         }
+        
+        Matrix!.Features = options.Features;
+        _time = options.Timer;
+        Matrix.AllottedTime = _time!.Value.ToSeconds();
+        Matrix.Prompt.Text = options.Prompt;
+        
+        CellCache.Initialize(Matrix.RowCount, Matrix.ColumnCount);
+
+        Console.WriteLine(Matrix.Features);
+        
+        StateHasChanged();
     }
 
-    private static string ReadTitle(Row row)
+    private static int GetColumnIndex(Cell cell)
+    {
+        var cellReference = cell.CellReference!.Value!;
+        var column = ExcelCreator.ExtractAlpha(cellReference);
+        return ExcelCreator.Base26ToDecimal(column) - 1;
+    }
+    
+    private string ReadTitle(Row row)
     {
         foreach (var cell in row.Descendants<Cell>())
         {
@@ -562,17 +616,17 @@ else
                 continue;
             }
             
-            return cell.InnerText;
+            return GetCellText(cell);
         }
         
         throw new Exception("Matrix title not found");
     }
 
-    private static int ReadDimension(Row row)
+    private static int ReadDimension(Row row, int rowIndex)
     {
         foreach (var cell in row.Descendants<Cell>())
         {
-            if (cell.CellReference != "B1")
+            if (cell.CellReference != $"B{rowIndex}")
             {
                 continue;
             }
@@ -583,35 +637,151 @@ else
         throw new Exception("Matrix dimension not found");
     }
     
-    private static string[] ReadColNames(Row row, int numCols)
+    private MatrixOptions ReadOptions(Row row)
     {
-        var colNames = new string[numCols];
-        var index = 0;
+        var options = new MatrixOptions();
         foreach (var cell in row.Descendants<Cell>())
         {
-            colNames[index] = cell.InnerText;
-            index++;
+            var optionValue = GetCellText(cell);
+            var columnIndex = GetColumnIndex(cell);
+            if(columnIndex % 2 == 0)
+            {
+                continue;
+            }
+            
+            switch (columnIndex)
+            {
+                case 1: // Prompt
+                    options.Prompt = optionValue;
+                    break;
+                case 3: // Timer
+                    Console.WriteLine(optionValue);
+                    if(!double.TryParse(optionValue, out var time))
+                    {
+                        throw new Exception("Invalid time format");
+                    }
+
+                    if (time != 0)
+                    {
+                        var timeSpan = TimeSpan.FromDays(time);
+                        options.Features |= MatrixFeatures.Timer;
+                        options.Timer = timeSpan;
+                    }
+
+                    break;
+                case 5:
+                {
+                    var optionBool = GetBoolOptionValue(cell);
+                    if (optionBool)
+                    {
+                        options.Features |= MatrixFeatures.RowRating;
+                    }
+
+                    break;
+                }
+                case 7:
+                {
+                    var optionBool = GetBoolOptionValue(cell);
+                    if (optionBool)
+                    {
+                        options.Features |= MatrixFeatures.ColumnRating;
+                    }
+
+                    break;
+                }
+                case 9:
+                {
+                    var optionBool = GetBoolOptionValue(cell);
+                    if (optionBool)
+                    {
+                        options.Features |= MatrixFeatures.RowRandomization;
+                    }
+
+                    break;
+                }
+                case 11:
+                {
+                    var optionBool = GetBoolOptionValue(cell);
+                    if (optionBool)
+                    {
+                        options.Features |= MatrixFeatures.ColumnRandomization;
+                    }
+
+                    break;
+                }
+                default:
+                    Console.WriteLine($"Unknown option: {optionValue}");
+                    break;
+            }
+        }
+
+        return options;
+    }
+
+    private bool GetBoolOptionValue(Cell cell)
+    {
+        if (cell.DataType is null)
+        {
+            return false;
+        }
+        
+        if (cell.DataType.Value == CellValues.Boolean)
+        {
+            return cell.InnerText == "1";
+        }
+        
+        var stringValue = GetCellText(cell);
+        return TrueStringValues.Contains(stringValue);
+    }
+    
+    private string[] ReadColNames(Row row, int numCols)
+    {
+        var colNames = new string[numCols];
+        foreach (var cell in row.Descendants<Cell>())
+        {
+            var i = GetColumnIndex(cell);
+            if (i == 0)
+            {
+                continue;
+            }
+            
+            colNames[i - 1] = GetCellText(cell);
         }
 
         return colNames;
     }
 
-    private static void ReadRowNameAndData(Row row, int rowIndex, string[] rowNames, string[,] data)
+    private void ReadRowNameAndData(Row row, int rowIndex, string[] rowNames, string[,] data)
     {
-        var index = 0;
         foreach (var cell in row.Descendants<Cell>())
         {
-            if (index == 0)
+            var cellValue = GetCellText(cell);
+            var i = GetColumnIndex(cell);
+            if (i == 0)
             {
-                rowNames[rowIndex] = cell.InnerText;
+                rowNames[rowIndex] = cellValue;
             }
             else
             {
-                data[rowIndex, index - 1] = cell.InnerText;
+                Console.WriteLine($"Row: {rowIndex}, Col: {i - 1}, Value: {cellValue}");
+                data[rowIndex, i - 1] = cellValue;
             }
-
-            index++;
         }
+    }
+    
+    private string GetCellText(Cell cell)
+    {
+        return cell.DataType?.Value == CellValues.SharedString ? GetSharedString(cell.InnerText) : cell.InnerText;
+    }
+    
+    private string GetSharedString(string stringIndex)
+    {
+        if (SharedStringTable is null)
+        {
+            throw new Exception("Shared string table not found");
+        }
+
+        return SharedStringTable.ElementAt(Convert.ToInt32(stringIndex)).InnerText;
     }
 
     internal enum ReaderState
@@ -620,8 +790,16 @@ else
         ReadingTitle,
         ReadingNumRows,
         ReadingNumCols,
+        ReadingOptions,
         Skip,
         ReadingColNames,
         ReadingRowNamesAndData,
+    }
+
+    internal class MatrixOptions
+    {
+        public string Prompt { get; set; } = "";
+        public TimeSpan? Timer { get; set; }
+        public MatrixFeatures Features { get; set; }
     }
 }

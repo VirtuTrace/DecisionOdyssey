@@ -588,6 +588,16 @@ public class ExcelCreator : IDisposable
 
         return result;
     }
+    
+    public static string ExtractAlpha(string input)
+    {
+        return new string(input.Where(char.IsLetter).ToArray());
+    }
+    
+    public static int Base26ToDecimal(string base26)
+    {
+        return base26.Aggregate(0, (current, letter) => current * 26 + letter - 'A' + 1);
+    }
 
     public void Dispose()
     {

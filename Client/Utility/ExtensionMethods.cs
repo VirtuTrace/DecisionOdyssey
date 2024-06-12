@@ -44,7 +44,7 @@ public static class ExtensionMethods
         }
     }
     
-    public static IEnumerable<(int i, T)> Enumerate<T>(this List<T> list)
+    public static IEnumerable<(int i, T)> Enumerate<T>(this IEnumerable<T> list)
     {
         return list.Select((t, i) => (i, t));
     }

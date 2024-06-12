@@ -1,10 +1,9 @@
 ﻿@using Common.Enums
 
-<MudCheckBox T="bool" Value="Checked" ValueChanged="@(e => UpdateValue(e))" Color="Color" UnCheckedColor="UnCheckedColor" Disabled="Disabled" Label="@Label" 
-             LabelPosition="LabelPosition"/>
+<MudCheckBox T="bool" Value="Checked" ValueChanged="@(e => UpdateValue(e))" Color="Color"
+             UnCheckedColor="UnCheckedColor" Disabled="Disabled" Label="@Label" LabelPosition="LabelPosition"/>
 
 @code {
-
     [Parameter] public Color Color { get; set; } = Color.Default;
     [Parameter] public Color UnCheckedColor { get; set; } = (Color)(-1);
     [Parameter] public bool Disabled { get; set; }
@@ -14,7 +13,7 @@
     [Parameter] public EventCallback<MatrixFeatures> FlagChanged { get; set; }
     [Parameter] public required MatrixFeatures FlagValue { get; set; }
 
-    private bool Checked { get; set; }
+    private bool Checked => Flag.HasFlag(FlagValue);
 
     protected override void OnInitialized()
     {
@@ -22,8 +21,6 @@
         {
             UnCheckedColor = Color;
         }
-
-        Checked = Flag.HasFlag(FlagValue);
     }
 
     private async void UpdateValue(bool value)
@@ -31,15 +28,14 @@
         if (value)
         {
             Flag |= FlagValue;
-            Checked = true;
+            //Checked = true;
         }
         else
         {
             Flag &= ~FlagValue;
-            Checked = false;
+            //Checked = false;
         }
-        
+
         await FlagChanged.InvokeAsync(Flag);
     }
-
 }
