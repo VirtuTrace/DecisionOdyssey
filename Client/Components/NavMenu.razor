@@ -12,10 +12,17 @@
     {
         <MudNavLink Href="logout" Icon="@Icons.Material.Filled.Logout">Logout</MudNavLink>
     }
-    <MudNavLink Href="/" Icon="@Icons.Material.Filled.Home" Disabled="@(ApplicationState.GuestLogin)">Home</MudNavLink>
-    <MudNavLink Href="editor/matrix" Icon="@Icons.Material.Filled.Edit" Disabled="@(ApplicationState.GuestLogin)">Editor</MudNavLink>
-    <MudNavLink Href="viewer/matrix/select" Icon="@Icons.Material.Filled.Visibility" Disabled="@(ApplicationState.GuestLogin)">Viewer</MudNavLink>
-    <MudNavLink Href="viewer/matrix/stats" Icon="@Icons.Material.Filled.BarChart" Disabled="@(ApplicationState.GuestLogin)">Stats</MudNavLink>
+    @if(!ApplicationState.GuestLogin)
+    {
+        <MudNavLink Href="/" Icon="@Icons.Material.Filled.Home">Home</MudNavLink>
+        @if (ApplicationState.IsAdmin)
+        {
+            <MudNavLink Href="admin" Icon="@Icons.Material.Filled.AdminPanelSettings">Admin</MudNavLink>
+        }
+        <MudNavLink Href="editor/matrix" Icon="@Icons.Material.Filled.Edit">Editor</MudNavLink>
+        <MudNavLink Href="viewer/matrix/select" Icon="@Icons.Material.Filled.Visibility">Viewer</MudNavLink>
+        <MudNavLink Href="viewer/matrix/stats" Icon="@Icons.Material.Filled.BarChart">Stats</MudNavLink>
+    }
 </MudNavMenu>
 
 @code {

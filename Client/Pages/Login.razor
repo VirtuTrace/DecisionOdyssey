@@ -6,6 +6,7 @@
 @using Common.DataStructures.Http.Responses
 
 @inject HttpClient Http
+@inject HttpUtility HttpUtility
 @inject ISnackbar Snackbar
 @inject NavigationManager NavManager
 @inject ApplicationState ApplicationState
@@ -74,6 +75,7 @@
             }
 
             await ApplicationState.StoreCredentials(result);
+            ApplicationState.IsAdmin = false;
             Snackbar.Add("Login Successful!", Severity.Success);
             NavigateToDestination();
         }
@@ -109,6 +111,8 @@
             }
 
             await ApplicationState.StoreCredentials(result, _model.Email);
+            ApplicationState.IsAdmin = await HttpUtility.IsUserAdmin(Http);
+            Console.WriteLine(ApplicationState.IsAdmin);
             Snackbar.Add("Login Successful!", Severity.Success);
             NavigateToDestination();
         }

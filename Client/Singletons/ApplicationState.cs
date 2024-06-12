@@ -16,6 +16,7 @@ public class ApplicationState
     private bool _darkMode;
 
     public bool LoggedIn { get; private set; }
+    public bool IsAdmin { get; set; }
 
     public bool DarkMode
     {

@@ -16,8 +16,10 @@ using Common.DataStructures.Http.Responses;
 
 namespace Client.Singletons;
 
-public partial class HttpUtility(ApplicationState applicationState)
+public partial class HttpUtility
 {
+    private ApplicationState _applicationState = null!;
+
     private static JsonSerializerOptions JsonOptions { get; } = new()
     {
             PropertyNameCaseInsensitive = true
@@ -29,11 +31,16 @@ public partial class HttpUtility(ApplicationState applicationState)
     [GeneratedRegex("prompt_(image|audio|video|text)")]
     private static partial Regex PromptRegex();
 
+    public void Initialize(ApplicationState applicationState)
+    {
+        _applicationState = applicationState;
+    }
+    
     private async Task<HttpResponseMessage> ExecuteGetRequest(HttpClient http, string endpoint)
     {
         while (true)
         {
-            http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", applicationState.AccessToken);
+            http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _applicationState.AccessToken);
             var response = await http.GetAsync(endpoint);
             if (response.IsSuccessStatusCode)
             {
@@ -96,7 +103,7 @@ public partial class HttpUtility(ApplicationState applicationState)
     {
         Console.WriteLine("Refreshing token");
         var tokenRequest = new TokenRequest {
-            AccessToken = applicationState.RefreshToken
+            AccessToken = _applicationState.RefreshToken
         };
         var response = await http.PostAsJsonAsync("api/users/refresh", tokenRequest);
         if (response.IsSuccessStatusCode)
@@ -108,7 +115,7 @@ public partial class HttpUtility(ApplicationState applicationState)
                 return false;
             }
             
-            await applicationState.StoreCredentials(authResponse, applicationState.Email);
+            await _applicationState.StoreCredentials(authResponse, _applicationState.Email);
         }
         else
         {
@@ -261,13 +268,32 @@ public partial class HttpUtility(ApplicationState applicationState)
     {
         var tokenRequest = new TokenRequest
         {
-            AccessToken = applicationState.AccessToken
+            AccessToken = _applicationState.AccessToken
         };
-        var response = await http.PostAsJsonAsync("logout", tokenRequest);
+        var response = await http.PostAsJsonAsync("api/users/logout", tokenRequest);
         if (!response.IsSuccessStatusCode)
         {
             await Console.Error.WriteLineAsync("Failed to logout");
         }
-        await applicationState.ClearCredentials();
+        await _applicationState.ClearCredentials();
+    }
+
+    public async Task<string> GetUserRole(HttpClient http)
+    {
+        var response = await ExecuteGetRequest(http, "api/users/role");
+        if (!response.IsSuccessStatusCode)
+        {
+            await Console.Error.WriteLineAsync("Failed to get user role");
+            return "";
+        }
+        
+        var content = await response.Content.ReadAsStringAsync();
+        return content;
+    }
+    
+    public async Task<bool> IsUserAdmin(HttpClient http)
+    {
+        var role = await GetUserRole(http);
+        return role is "Admin" or "SuperAdmin";
     }
 }

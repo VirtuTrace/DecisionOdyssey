@@ -26,6 +26,10 @@ var host = builder.Build();
 
 var localStorageAccessor = host.Services.GetRequiredService<LocalStorageAccessor>();
 var applicationState = host.Services.GetRequiredService<ApplicationState>();
+var httpUtility = host.Services.GetRequiredService<HttpUtility>();
+var http = host.Services.GetRequiredService<HttpClient>();
 await applicationState.InitializeAsync(localStorageAccessor);
+httpUtility.Initialize(applicationState);
+applicationState.IsAdmin = await httpUtility.IsUserAdmin(http);
 
 await host.RunAsync();
