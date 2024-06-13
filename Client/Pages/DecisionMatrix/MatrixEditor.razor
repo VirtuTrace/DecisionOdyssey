@@ -123,6 +123,14 @@ else
             <td style="text-align: start;">
                 <MudGrid Justify="Justify.FlexStart">
                     <MudItem xs="6">
+                        @* <FlagCheckbox Flag="Matrix.Features" Color="Color.Primary" FlagValue="MatrixFeatures.Prompt" *@
+                        @*               FlagChanged="UpdatePromptExistence" Label="Enable Decision Scenario"/> *@
+                    </MudItem>
+                    <MudItem xs="6">
+                        <MudButton Variant="Variant.Filled" Color="Color.Tertiary"
+                                   OnClick="OpenPromptEditDialogue">Edit Decision Scenario</MudButton>
+                    </MudItem>
+                    <MudItem xs="6">
                         <FlagCheckbox @bind-Flag="Matrix.Features" Color="Color.Primary" FlagValue="MatrixFeatures.Timer"
                                       Label="Enable Time Limit"/>
                     </MudItem>
@@ -135,14 +143,6 @@ else
                         {
                             <MudSpacer />
                         }
-                    </MudItem>
-                    <MudItem xs="6">
-                        @* <FlagCheckbox Flag="Matrix.Features" Color="Color.Primary" FlagValue="MatrixFeatures.Prompt" *@
-                        @*               FlagChanged="UpdatePromptExistence" Label="Enable Decision Scenario"/> *@
-                    </MudItem>
-                    <MudItem xs="6">
-                        <MudButton Variant="Variant.Filled" Color="Color.Tertiary"
-                                   OnClick="OpenPromptEditDialogue">Edit Decision Scenario</MudButton>
                     </MudItem>
                     <MudItem xs="6">
                         <FlagCheckbox @bind-Flag="Matrix.Features" Color="@Color.Primary"

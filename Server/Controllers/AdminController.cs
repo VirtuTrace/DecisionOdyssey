@@ -22,9 +22,27 @@ public class AdminController(ApplicationDbContext context, ILogger logger, UserM
     #region User Control
 
     [HttpGet("user")]
-    public async Task<ActionResult<List<UserDto>>> GetUsers()
+    public async Task<ActionResult<List<UserDto>>> GetUsers(string? email = null, string? firstname = null, string? lastname = null, string? name = null)
     {
-        var users = await _context.Users.Select(u => u.ToDto()).ToListAsync();
+        var userQuery = _context.Users.Select(u => u.ToDto());
+        if (email is not null)
+        {
+            userQuery = userQuery.Where(u => u.Email.Contains(email));
+        }
+        if (firstname is not null)
+        {
+            userQuery = userQuery.Where(u => u.FirstName.Contains(firstname));
+        }
+        if (lastname is not null)
+        {
+            userQuery = userQuery.Where(u => u.LastName.Contains(lastname));
+        }
+        if (name is not null)
+        {
+            userQuery = userQuery.Where(u => u.FirstName.Contains(name) || u.LastName.Contains(name));
+        }
+        
+        var users = await userQuery.ToListAsync();
         return Ok(users);
     }
     
@@ -42,19 +60,19 @@ public class AdminController(ApplicationDbContext context, ILogger logger, UserM
         var user = await GetUserByGuid(guid);
         if (user is null)
         {
-            logger.LogInformation("User {guid} not found", guid);
+            _logger.LogInformation("User {guid} not found", guid);
             return NotFound();
         }
 
         if (!await UserCanBeManaged(managerUser, user))
         {
-            logger.LogInformation("User {user} cannot be managed by requesting user {requestingUser}", user.Guid, managerUser.Guid);
+            _logger.LogInformation("User {user} cannot be managed by requesting user {requestingUser}", user.Guid, managerUser.Guid);
             return Forbid();
         }
 
         _context.Users.Remove(user);
         await _context.SaveChangesAsync();
-        logger.LogInformation("User {guid} deleted", guid);
+        _logger.LogInformation("User {guid} deleted", guid);
 
         return Ok();
     }

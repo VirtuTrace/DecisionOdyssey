@@ -1,9 +1,30 @@
 ﻿@page "/admin/users"
 
+@using Client.Singletons
+@using Common.DataStructures.Dtos
+
 @inherits Client.Pages.Base.AdminAuthenticatedPage
+
+@inject HttpClient Http
+@inject HttpUtility HttpUtility
 
 <h3>User Administration</h3>
 
+<MudItem xs="12" sm="6" md="4">
+    <MudAutocomplete T="UserDto" Label="Users" @bind-Value="SelectedUser" SearchFunc="@FindUsers"
+                     ResetValueOnEmptyText="@ResetValueOnEmptyText"
+                     CoerceText="@CoerceText" CoerceValue="@CoerceValue"
+                     AdornmentIcon="@Icons.Material.Filled.Search" AdornmentColor="Color.Primary" />
+</MudItem>
+
 @code {
+    private bool CoerceText { get; set; }
+    private bool CoerceValue { get; set; }
+    private bool ResetValueOnEmptyText { get; set; }
+    private UserDto? SelectedUser { get; set; }
     
+    private async Task<IEnumerable<UserDto>> FindUsers(string value)
+    {
+        return await Http.GetFromJsonAsync<IEnumerable<UserDto>>($"api/User/Search?search={value}");
+    }
 }
