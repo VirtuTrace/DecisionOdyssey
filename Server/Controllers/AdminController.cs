@@ -1,5 +1,6 @@
 ﻿using Common.DataStructures.Dtos;
 using Common.DataStructures.Dtos.DecisionElements;
+using Common.DataStructures.Http.Responses;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -13,18 +14,17 @@ namespace Server.Controllers;
 [Route("api/[controller]")]
 [Authorize(Roles = "SuperAdmin, Admin")]
 [ApiController]
-public class AdminController(ApplicationDbContext context, ILogger logger, UserManager<User> userManager) : ApplicationControllerBase(context, logger, userManager)
+public class AdminController(ApplicationDbContext context, ILogger<AdminController> logger, UserManager<User> userManager) : ApplicationControllerBase(context, logger, userManager)
 {
     private readonly ApplicationDbContext _context = context;
     private readonly UserManager<User> _userManager = userManager;
-    private readonly ILogger _logger = logger;
 
     #region User Control
 
-    [HttpGet("user")]
+    [HttpGet("users")]
     public async Task<ActionResult<List<UserDto>>> GetUsers(string? email = null, string? firstname = null, string? lastname = null, string? name = null)
     {
-        var userQuery = _context.Users.Select(u => u.ToDto());
+        var userQuery = _context.Users.AsQueryable();
         if (email is not null)
         {
             userQuery = userQuery.Where(u => u.Email.Contains(email));
@@ -42,7 +42,7 @@ public class AdminController(ApplicationDbContext context, ILogger logger, UserM
             userQuery = userQuery.Where(u => u.FirstName.Contains(name) || u.LastName.Contains(name));
         }
         
-        var users = await userQuery.ToListAsync();
+        var users = await userQuery.Select(u => u.ToDto()).ToListAsync();
         return Ok(users);
     }
     
@@ -60,21 +60,40 @@ public class AdminController(ApplicationDbContext context, ILogger logger, UserM
         var user = await GetUserByGuid(guid);
         if (user is null)
         {
-            _logger.LogInformation("User {guid} not found", guid);
+            logger.LogInformation("User {guid} not found", guid);
             return NotFound();
         }
 
         if (!await UserCanBeManaged(managerUser, user))
         {
-            _logger.LogInformation("User {user} cannot be managed by requesting user {requestingUser}", user.Guid, managerUser.Guid);
+            logger.LogInformation("User {user} cannot be managed by requesting user {requestingUser}", user.Guid, managerUser.Guid);
             return Forbid();
         }
 
         _context.Users.Remove(user);
         await _context.SaveChangesAsync();
-        _logger.LogInformation("User {guid} deleted", guid);
+        logger.LogInformation("User {guid} deleted", guid);
 
         return Ok();
+    }
+    
+    [HttpGet("user/{guid:guid}/status")]
+    public async Task<ActionResult<UserStatusResponse>> GetUserStatus(Guid guid)
+    {
+        var user = await GetUserByGuid(guid);
+        if (user is null)
+        {
+            logger.LogInformation("User {guid} not found", guid);
+            return NotFound();
+        }
+
+        var role = (await _userManager.GetRolesAsync(user)).FirstOrDefault() ?? "User";
+        var locked = await _userManager.IsLockedOutAsync(user);
+        return new UserStatusResponse
+        {
+            Role = role,
+            Locked = locked
+        };
     }
     
     [HttpPost("user/{guid:guid}/role")]
@@ -82,7 +101,7 @@ public class AdminController(ApplicationDbContext context, ILogger logger, UserM
     {
         if (!ApplicationRole.IsValidRole(role))
         {
-            _logger.LogInformation("Role does not exist: {role}", role);
+            logger.LogInformation("Role does not exist: {role}", role);
             return BadRequest(new { Message = "Role does not exist" });
         }
         
@@ -97,13 +116,13 @@ public class AdminController(ApplicationDbContext context, ILogger logger, UserM
         var user = await GetUserByGuid(guid);
         if (user is null)
         {
-            _logger.LogInformation("User not found: {guid}", guid);
+            logger.LogInformation("User not found: {guid}", guid);
             return NotFound();
         }
 
         if (!await UserCanBeManaged(requestingUser, user))
         {
-            _logger.LogInformation("User {user} cannot be managed by requesting user {requestingUser}", user.Guid, requestingUser.Guid);
+            logger.LogInformation("User {user} cannot be managed by requesting user {requestingUser}", user.Guid, requestingUser.Guid);
             return Forbid();
         }
 
@@ -111,14 +130,14 @@ public class AdminController(ApplicationDbContext context, ILogger logger, UserM
         var result = await _userManager.RemoveFromRolesAsync(user, roles);
         if (!result.Succeeded)
         {
-            _logger.LogInformation("Failed to remove roles from user {user}: {errors}", user.Guid, result.Errors);
+            logger.LogInformation("Failed to remove roles from user {user}: {errors}", user.Guid, result.Errors);
             return BadRequest(new { Message = "Failed to remove old roles from user"});
         }
         
         result = await _userManager.AddToRoleAsync(user, role);
         if (!result.Succeeded)
         {
-            _logger.LogInformation("Failed to add role to user {user}: {errors}", user.Guid, result.Errors);
+            logger.LogInformation("Failed to add role to user {user}: {errors}", user.Guid, result.Errors);
             return BadRequest(new { Message = "Failed to add role to user" });
         }
 
@@ -139,20 +158,20 @@ public class AdminController(ApplicationDbContext context, ILogger logger, UserM
         var user = await GetUserByGuid(guid);
         if (user is null)
         {
-            _logger.LogInformation("User not found: {guid}", guid);
+            logger.LogInformation("User not found: {guid}", guid);
             return NotFound();
         }
 
         if (!await UserCanBeManaged(requestingUser, user))
         {
-            _logger.LogInformation("User {user} cannot be managed by requesting user {requestingUser}", user.Guid, requestingUser.Guid);
+            logger.LogInformation("User {user} cannot be managed by requesting user {requestingUser}", user.Guid, requestingUser.Guid);
             return Forbid();
         }
 
         var result = await _userManager.SetLockoutEndDateAsync(user, DateTimeOffset.MaxValue);
         if (!result.Succeeded)
         {
-            _logger.LogInformation("Failed to lock user {user}: {errors}", user.Guid, result.Errors);
+            logger.LogInformation("Failed to lock user {user}: {errors}", user.Guid, result.Errors);
             return BadRequest(new { Message = "Failed to lock user" });
         }
 
@@ -173,20 +192,20 @@ public class AdminController(ApplicationDbContext context, ILogger logger, UserM
         var user = await GetUserByGuid(guid);
         if (user is null)
         {
-            _logger.LogInformation("User not found: {guid}", guid);
+            logger.LogInformation("User not found: {guid}", guid);
             return NotFound();
         }
 
         if (!await UserCanBeManaged(requestingUser, user))
         {
-            _logger.LogInformation("User {user} cannot be managed by requesting user {requestingUser}", user.Guid, requestingUser.Guid);
+            logger.LogInformation("User {user} cannot be managed by requesting user {requestingUser}", user.Guid, requestingUser.Guid);
             return Forbid();
         }
 
         var result = await _userManager.SetLockoutEndDateAsync(user, null);
         if (!result.Succeeded)
         {
-            _logger.LogInformation("Failed to unlock user {user}: {errors}", user.Guid, result.Errors);
+            logger.LogInformation("Failed to unlock user {user}: {errors}", user.Guid, result.Errors);
             return BadRequest(new { Message = "Failed to unlock user" });
         }
 
@@ -201,7 +220,7 @@ public class AdminController(ApplicationDbContext context, ILogger logger, UserM
     public async Task<ActionResult<List<DecisionMatrixDto>>> GetDecisionMatrices()
     {
         var matrices = await _context.DecisionMatrices.Select(m => m.ToDto()).ToListAsync();
-        _logger.LogInformation("Returning {count} matrices", matrices.Count);
+        logger.LogInformation("Returning {count} matrices", matrices.Count);
         return Ok(matrices);
     }
     

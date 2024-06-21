@@ -594,6 +594,11 @@ public class ExcelCreator : IDisposable
         return new string(input.Where(char.IsLetter).ToArray());
     }
     
+    public static int ExtractNumeric(string input)
+    {
+        return int.Parse(new string(input.Where(char.IsDigit).ToArray()));
+    }
+    
     public static int Base26ToDecimal(string base26)
     {
         return base26.Aggregate(0, (current, letter) => current * 26 + letter - 'A' + 1);

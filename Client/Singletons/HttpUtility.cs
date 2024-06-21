@@ -291,9 +291,34 @@ public partial class HttpUtility
         return content;
     }
     
-    public async Task<bool> IsUserAdmin(HttpClient http)
+    public async Task<UserStatusResponse?> GetUserStatus(HttpClient http, Guid userGuid)
     {
-        var role = await GetUserRole(http);
-        return role is "Admin" or "SuperAdmin";
+        var response = await ExecuteGetRequest(http, $"api/admin/user/{userGuid}/status");
+        if (!response.IsSuccessStatusCode)
+        {
+            await Console.Error.WriteLineAsync("Failed to get user role");
+            return null;
+        }
+        
+        var content = await response.Content.ReadFromJsonAsync<UserStatusResponse>();
+        return content;
+    }
+    
+    public async Task<bool> LockUser(HttpClient http, Guid userGuid)
+    {
+        var response = await http.PostAsync($"api/admin/user/{userGuid}/lock", null);
+        return response.IsSuccessStatusCode;
+    }
+    
+    public async Task<bool> UnlockUser(HttpClient http, Guid userGuid)
+    {
+        var response = await http.DeleteAsync($"api/admin/user/{userGuid}/lock");
+        return response.IsSuccessStatusCode;
+    }
+    
+    public async Task<bool> UpdateUserRole(HttpClient http, Guid userGuid, string role)
+    {
+        var response = await http.PostAsJsonAsync($"api/admin/user/{userGuid}/role", role);
+        return response.IsSuccessStatusCode;
     }
 }

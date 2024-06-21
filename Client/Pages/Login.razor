@@ -75,7 +75,7 @@
             }
 
             await ApplicationState.StoreCredentials(result);
-            ApplicationState.IsAdmin = false;
+            ApplicationState.Role = "Guest";
             Snackbar.Add("Login Successful!", Severity.Success);
             NavigateToDestination();
         }
@@ -111,7 +111,7 @@
             }
 
             await ApplicationState.StoreCredentials(result, _model.Email);
-            ApplicationState.IsAdmin = await HttpUtility.IsUserAdmin(Http);
+            ApplicationState.Role = await HttpUtility.GetUserRole(Http);
             Console.WriteLine(ApplicationState.IsAdmin);
             Snackbar.Add("Login Successful!", Severity.Success);
             NavigateToDestination();

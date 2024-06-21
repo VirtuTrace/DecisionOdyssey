@@ -1,0 +1,117 @@
+﻿@using Client.Singletons
+@using Common.DataStructures.Dtos
+
+@inject ApplicationState ApplicationState
+@inject HttpClient Http
+@inject HttpUtility HttpUtility
+@inject ISnackbar Snackbar
+
+<MudContainer Class="d-flex flex-row flex-grow-1 gap-4 align-content-center">
+    @{
+    var name = User.FirstName + " " + User.LastName;
+    <MudTextField ReadOnly="true" Label="Name" Value="name" Variant="Variant.Outlined"/>
+    }
+    <MudSelect Label="Role" @bind-Value="InternalUserRole">
+        @foreach (var role in ManageableRoles[ApplicationState.Role])
+        {
+        <MudSelectItem Value="@role">@role</MudSelectItem>
+        }
+    </MudSelect>
+    <MudCheckBox @bind-Value="InternalUserLocked" Label="Locked" Color="Color.Primary" />
+    <MudButton Color="Color.Primary" Variant="Variant.Filled" Size="Size.Small" OnClick="UpdateUserStatus">Save</MudButton>
+</MudContainer>
+
+@code {
+    private static readonly Dictionary<string, List<string>> ManageableRoles = new()
+    {
+        {"SuperAdmin", [ "Admin", "Researcher", "User", "Guest" ]},
+        { "Admin", [ "Researcher", "User", "Guest" ] }
+    };
+
+    [Parameter] public UserDto User { get; set; } = null!;
+    [Parameter] public string UserRole { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> UserRoleChanged { get; set; }
+    [Parameter] public bool UserLocked { get; set; }
+    [Parameter] public EventCallback<bool> UserLockedChanged { get; set; }
+    
+    private bool _roleChanged;
+    private bool _lockedChanged;
+    
+    private string _internalUserRole = string.Empty;
+    private string InternalUserRole
+    {
+        get => _internalUserRole;
+        set
+        {
+            _internalUserRole = value;
+            _roleChanged = true;
+            UserRoleChanged.InvokeAsync(value);
+        }
+    }
+    
+    private bool _internalUserLocked;
+    private bool InternalUserLocked
+    {
+        get => _internalUserLocked;
+        set
+        {
+            _internalUserLocked = value;
+            _lockedChanged = true;
+            UserLockedChanged.InvokeAsync(value);
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        _internalUserRole = UserRole;
+        _internalUserLocked = UserLocked;
+    }
+
+    private async Task UpdateUserStatus()
+    {
+        if (_roleChanged)
+        {
+            UserRole = InternalUserRole;
+            _roleChanged = false;
+            var response = await HttpUtility.UpdateUserRole(Http, User.Guid, UserRole);
+            if (response)
+            {
+                Snackbar.Add("User role updated!", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add("Failed to update user role!", Severity.Error);
+            }
+        }
+
+        if (_lockedChanged)
+        {
+            UserLocked = InternalUserLocked;
+            _lockedChanged = false;
+            if (UserLocked)
+            {
+                var response = await HttpUtility.LockUser(Http, User.Guid);
+                if (response)
+                {
+                    Snackbar.Add("User locked!", Severity.Success);
+                }
+                else
+                {
+                    Snackbar.Add("Failed to lock user!", Severity.Error);
+                }
+            }
+            else
+            {
+                var response = await HttpUtility.UnlockUser(Http, User.Guid);
+                if (response)
+                {
+                    Snackbar.Add("User unlocked!", Severity.Success);
+                }
+                else
+                {
+                    Snackbar.Add("Failed to unlock user!", Severity.Error);
+                }
+            }
+        }
+    }
+}

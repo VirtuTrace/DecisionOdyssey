@@ -30,6 +30,6 @@ var httpUtility = host.Services.GetRequiredService<HttpUtility>();
 var http = host.Services.GetRequiredService<HttpClient>();
 await applicationState.InitializeAsync(localStorageAccessor);
 httpUtility.Initialize(applicationState);
-applicationState.IsAdmin = await httpUtility.IsUserAdmin(http);
+applicationState.Role = await httpUtility.GetUserRole(http);
 
 await host.RunAsync();

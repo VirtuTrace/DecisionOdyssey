@@ -194,6 +194,7 @@ else
 
 @code {
     private const string CreateMatrix = "Create new matrix";
+    private const int MetadataRows = 7;
     
     private static readonly HashSet<string> TrueStringValues = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -494,7 +495,6 @@ else
         string[] rowNames = [];
         string[] colNames = [];
         var textData = new string[0, 0];
-        var rowIndex = 0;
         var readerState = ReaderState.ReadingTitle;
         var reader = OpenXmlReader.Create(worksheetPart);
         var options = new MatrixOptions();
@@ -513,12 +513,20 @@ else
                     readerState = ReaderState.ReadingNumRows;
                     break;
                 case ReaderState.ReadingNumRows:
-                    numRows = ReadDimension(row, 2);
+                    if (!TryReadDimension(row, 2, out numRows))
+                    {
+                        Snackbar.Add("Excel file missing number of rows for matrix", Severity.Error);
+                        return;
+                    }
                     rowNames = new string[numRows];
                     readerState = ReaderState.ReadingNumCols;
                     break;
                 case ReaderState.ReadingNumCols:
-                    numCols = ReadDimension(row, 3);
+                    if (!TryReadDimension(row, 3, out numCols))
+                    {
+                        Snackbar.Add("Excel file missing number of columns for matrix", Severity.Error);
+                        return;
+                    }
                     readerState = ReaderState.ReadingOptions;
                     break;
                 case ReaderState.ReadingOptions:
@@ -542,8 +550,7 @@ else
                     readerState = ReaderState.ReadingRowNamesAndData;
                     break;
                 case ReaderState.ReadingRowNamesAndData:
-                    ReadRowNameAndData(row, rowIndex, rowNames, textData);
-                    rowIndex++;
+                    ReadRowNameAndData(row, rowNames, textData);
                     break;
                 case ReaderState.None:
                 default:
@@ -590,7 +597,10 @@ else
         
         Matrix!.Features = options.Features;
         _time = options.Timer;
-        Matrix.AllottedTime = _time!.Value.ToSeconds();
+        if (_time is not null)
+        {
+            Matrix.AllottedTime = _time!.Value.ToSeconds();
+        }
         Matrix.Prompt.Text = options.Prompt;
         
         CellCache.Initialize(Matrix.RowCount, Matrix.ColumnCount);
@@ -606,6 +616,13 @@ else
         var column = ExcelCreator.ExtractAlpha(cellReference);
         return ExcelCreator.Base26ToDecimal(column) - 1;
     }
+
+    private static int GetRowIndex(Cell cell)
+    {
+        var cellReference = cell.CellReference!.Value!;
+        var row = ExcelCreator.ExtractNumeric(cellReference);
+        return row - 1;
+    }
     
     private string ReadTitle(Row row)
     {
@@ -618,11 +635,11 @@ else
             
             return GetCellText(cell);
         }
-        
-        throw new Exception("Matrix title not found");
+
+        return "";
     }
 
-    private static int ReadDimension(Row row, int rowIndex)
+    private static bool TryReadDimension(Row row, int rowIndex, out int dimension)
     {
         foreach (var cell in row.Descendants<Cell>())
         {
@@ -631,10 +648,12 @@ else
                 continue;
             }
             
-            return Convert.ToInt32(cell.InnerText);
+            dimension = Convert.ToInt32(cell.InnerText);
+            return true;
         }
-        
-        throw new Exception("Matrix dimension not found");
+
+        dimension = -1;
+        return false;
     }
     
     private MatrixOptions ReadOptions(Row row)
@@ -656,18 +675,17 @@ else
                     break;
                 case 3: // Timer
                     Console.WriteLine(optionValue);
-                    if(!double.TryParse(optionValue, out var time))
-                    {
-                        throw new Exception("Invalid time format");
-                    }
-
-                    if (time != 0)
+                    if (double.TryParse(optionValue, out var time) && time != 0)
                     {
                         var timeSpan = TimeSpan.FromDays(time);
                         options.Features |= MatrixFeatures.Timer;
                         options.Timer = timeSpan;
                     }
-
+                    else
+                    {
+                        options.Timer = null;
+                    }
+                    
                     break;
                 case 5:
                 {
@@ -751,20 +769,22 @@ else
         return colNames;
     }
 
-    private void ReadRowNameAndData(Row row, int rowIndex, string[] rowNames, string[,] data)
+    private void ReadRowNameAndData(Row row, string[] rowNames, string[,] data)
     {
         foreach (var cell in row.Descendants<Cell>())
         {
             var cellValue = GetCellText(cell);
-            var i = GetColumnIndex(cell);
-            if (i == 0)
+            var columnIndex = GetColumnIndex(cell);
+            var rowIndex = GetRowIndex(cell) - MetadataRows;
+            Console.WriteLine($"Row: {rowIndex} {rowIndex}");
+            if (columnIndex == 0)
             {
                 rowNames[rowIndex] = cellValue;
             }
             else
             {
-                Console.WriteLine($"Row: {rowIndex}, Col: {i - 1}, Value: {cellValue}");
-                data[rowIndex, i - 1] = cellValue;
+                Console.WriteLine($"Row: {rowIndex}, Col: {columnIndex - 1}, Value: {cellValue}");
+                data[rowIndex, columnIndex - 1] = cellValue;
             }
         }
     }

@@ -2,29 +2,88 @@
 
 @using Client.Singletons
 @using Common.DataStructures.Dtos
+@using Client.Components
 
 @inherits Client.Pages.Base.AdminAuthenticatedPage
 
 @inject HttpClient Http
 @inject HttpUtility HttpUtility
+@inject ApplicationState ApplicationState
+@inject ISnackbar Snackbar
 
 <h3>User Administration</h3>
 
 <MudItem xs="12" sm="6" md="4">
     <MudAutocomplete T="UserDto" Label="Users" @bind-Value="SelectedUser" SearchFunc="@FindUsers"
                      ResetValueOnEmptyText="@ResetValueOnEmptyText"
-                     CoerceText="@CoerceText" CoerceValue="@CoerceValue"
+                     CoerceText="@CoerceText" CoerceValue="@CoerceValue" ToStringFunc="UserToString"
                      AdornmentIcon="@Icons.Material.Filled.Search" AdornmentColor="Color.Primary" />
+    @if (SelectedUser is not null)
+    {
+        <UserAdministrator User="SelectedUser" @bind-UserRole="SelectedUserRole" @bind-UserLocked="SelectedUserLocked" />
+    }
 </MudItem>
 
 @code {
+    private static readonly Dictionary<string, List<string>> ManageableRoles = new()
+    {
+        {"SuperAdmin", [ "Admin", "Researcher", "User", "Guest" ]},
+        { "Admin", [ "Researcher", "User", "Guest" ] }
+    };
+
+    private UserDto? _selectedUser;
+
     private bool CoerceText { get; set; }
     private bool CoerceValue { get; set; }
     private bool ResetValueOnEmptyText { get; set; }
-    private UserDto? SelectedUser { get; set; }
+    private string SelectedUserRole { get; set; } = string.Empty;
+    private bool SelectedUserLocked { get; set; }
+    private static Func<UserDto, string> UserToString => user => user.FirstName + " " + user.LastName;
+
+    private UserDto? SelectedUser
+    {
+        get => _selectedUser;
+        set
+        {
+            GetUserRoleAsync(value);
+        }
+    }
+
+    private async Task GetUserRoleAsync(UserDto? user)
+    {
+        if (user is null)
+        {
+            return;
+        }
+
+        var response = await HttpUtility.GetUserStatus(Http, user.Guid);
+        Console.WriteLine(response);
+        if (response is not null)
+        {
+            SelectedUserRole = response.Role;
+            SelectedUserLocked = response.Locked;
+        }
+        else
+        {
+            Snackbar.Add("Failed to get user role!", Severity.Error);
+        }
+        
+        _selectedUser = user;
+        StateHasChanged();
+    }
     
     private async Task<IEnumerable<UserDto>> FindUsers(string value)
     {
-        return await Http.GetFromJsonAsync<IEnumerable<UserDto>>($"api/User/Search?search={value}");
+        if (value.Contains(" "))
+        {
+            var parts = value.Split(" ");
+            var users = await Http.GetFromJsonAsync<IEnumerable<UserDto>>($"api/admin/users?firstName={parts[0]}&lastName={parts[1]}");
+            return users ?? new List<UserDto>();
+        }
+        else
+        {
+            var users = await Http.GetFromJsonAsync<IEnumerable<UserDto>>($"api/admin/users?name={value}");
+            return users ?? new List<UserDto>();
+        }
     }
 }

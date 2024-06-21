@@ -16,7 +16,8 @@ public class ApplicationState
     private bool _darkMode;
 
     public bool LoggedIn { get; private set; }
-    public bool IsAdmin { get; set; }
+    public string Role { get; set; } = string.Empty;
+    public bool IsAdmin => Role is "Admin" or "SuperAdmin";
 
     public bool DarkMode
     {
