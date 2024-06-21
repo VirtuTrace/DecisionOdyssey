@@ -11,20 +11,20 @@
     else
     {
         <MudNavLink Href="logout" Icon="@Icons.Material.Filled.Logout">Logout</MudNavLink>
-    }
-    @if(!ApplicationState.GuestLogin)
-    {
-        <MudNavLink Href="/" Icon="@Icons.Material.Filled.Home">Home</MudNavLink>
-        @if (ApplicationState.IsAdmin)
+        @if(!ApplicationState.GuestLogin)
         {
-            <MudNavGroup Title="Admin" Icon="@Icons.Material.Filled.AdminPanelSettings">
-                <MudNavLink Href="admin/users" Icon="@Icons.Material.Filled.Person">Users</MudNavLink>
-                <MudNavLink Href="admin/roles" Icon="@Icons.Material.Filled.Security">Roles</MudNavLink>
-            </MudNavGroup>
+            <MudNavLink Href="/" Icon="@Icons.Material.Filled.Home">Home</MudNavLink>
+            @if (ApplicationState.IsAdmin)
+            {
+                <MudNavGroup Title="Admin" Icon="@Icons.Material.Filled.AdminPanelSettings">
+                    <MudNavLink Href="admin/users" Icon="@Icons.Material.Filled.Person">Users</MudNavLink>
+                    @* <MudNavLink Href="admin/roles" Icon="@Icons.Material.Filled.Security">Roles</MudNavLink> *@
+                </MudNavGroup>
+            }
+            <MudNavLink Href="editor/matrix" Icon="@Icons.Material.Filled.Edit">Editor</MudNavLink>
+            <MudNavLink Href="viewer/matrix/select" Icon="@Icons.Material.Filled.Visibility">Viewer</MudNavLink>
+            <MudNavLink Href="viewer/matrix/stats" Icon="@Icons.Material.Filled.BarChart">Stats</MudNavLink>
         }
-        <MudNavLink Href="editor/matrix" Icon="@Icons.Material.Filled.Edit">Editor</MudNavLink>
-        <MudNavLink Href="viewer/matrix/select" Icon="@Icons.Material.Filled.Visibility">Viewer</MudNavLink>
-        <MudNavLink Href="viewer/matrix/stats" Icon="@Icons.Material.Filled.BarChart">Stats</MudNavLink>
     }
 </MudNavMenu>
 

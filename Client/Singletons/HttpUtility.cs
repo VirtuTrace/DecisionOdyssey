@@ -270,11 +270,12 @@ public partial class HttpUtility
         {
             AccessToken = _applicationState.AccessToken
         };
-        var response = await http.PostAsJsonAsync("api/users/logout", tokenRequest);
-        if (!response.IsSuccessStatusCode)
-        {
-            await Console.Error.WriteLineAsync("Failed to logout");
-        }
+        await http.PostAsJsonAsync("api/users/logout", tokenRequest);
+        // Don't check response status code because the token will be invalidated (on success) or is already invalid (on failure)
+        // if (!response.IsSuccessStatusCode)
+        // {
+        //     await Console.Error.WriteLineAsync("Failed to logout");
+        // }
         await _applicationState.ClearCredentials();
     }
 
@@ -283,7 +284,7 @@ public partial class HttpUtility
         var response = await ExecuteGetRequest(http, "api/users/role");
         if (!response.IsSuccessStatusCode)
         {
-            await Console.Error.WriteLineAsync("Failed to get user role");
+            Console.WriteLine("Failed to get user role");
             return "";
         }
         
@@ -296,7 +297,7 @@ public partial class HttpUtility
         var response = await ExecuteGetRequest(http, $"api/admin/user/{userGuid}/status");
         if (!response.IsSuccessStatusCode)
         {
-            await Console.Error.WriteLineAsync("Failed to get user role");
+            Console.WriteLine("Failed to get user status");
             return null;
         }
         
@@ -304,19 +305,19 @@ public partial class HttpUtility
         return content;
     }
     
-    public async Task<bool> LockUser(HttpClient http, Guid userGuid)
+    public static async Task<bool> LockUser(HttpClient http, Guid userGuid)
     {
         var response = await http.PostAsync($"api/admin/user/{userGuid}/lock", null);
         return response.IsSuccessStatusCode;
     }
     
-    public async Task<bool> UnlockUser(HttpClient http, Guid userGuid)
+    public static async Task<bool> UnlockUser(HttpClient http, Guid userGuid)
     {
         var response = await http.DeleteAsync($"api/admin/user/{userGuid}/lock");
         return response.IsSuccessStatusCode;
     }
     
-    public async Task<bool> UpdateUserRole(HttpClient http, Guid userGuid, string role)
+    public static async Task<bool> UpdateUserRole(HttpClient http, Guid userGuid, string role)
     {
         var response = await http.PostAsJsonAsync($"api/admin/user/{userGuid}/role", role);
         return response.IsSuccessStatusCode;

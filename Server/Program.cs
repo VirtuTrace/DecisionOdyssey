@@ -91,6 +91,7 @@ builder.Services.AddCors(options =>
                     .WithOrigins("https://localhost:5000")
                     .WithOrigins("https://localhost:443")
                     .WithOrigins("https://localhost:80")
+                    .WithExposedHeaders("Token-Expired")
                     .AllowAnyHeader()
                     .AllowAnyMethod()
                     .AllowCredentials();
