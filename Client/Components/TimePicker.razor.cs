@@ -26,7 +26,9 @@ namespace Client.Components
         private string OnSet(TimeSpan? timespan)
         {
             if (timespan == null)
+            {
                 return string.Empty;
+            }
 
             var time = DateTime.Today.Add(timespan.Value);
 
@@ -36,7 +38,9 @@ namespace Client.Components
         private TimeSpan? OnGet(string? value)
         {
             if (string.IsNullOrEmpty(value))
+            {
                 return null;
+            }
 
             if (DateTime.TryParseExact(value, ((DefaultConverter<TimeSpan?>)Converter).Format, Culture, DateTimeStyles.None, out var time))
             {
@@ -129,7 +133,9 @@ namespace Client.Components
             set
             {
                 if (value == _amPm)
+                {
                     return;
+                }
 
                 _amPm = value;
 
@@ -154,11 +160,15 @@ namespace Client.Components
             set
             {
                 if (_timeFormat == value)
+                {
                     return;
+                }
 
                 _timeFormat = value;
                 if (Converter is DefaultConverter<TimeSpan?> defaultConverter)
+                {
                     defaultConverter.Format = _timeFormat;
+                }
 
                 Touched = true;
                 SetTextAsync(Converter.Set(_value), false).AndForget();
@@ -185,7 +195,10 @@ namespace Client.Components
                 TimeIntermediate = time;
                 _value = time;
                 if (updateValue)
+                {
                     await SetTextAsync(Converter.Set(_value), false);
+                }
+
                 UpdateTimeSetFromTime();
                 await TimeChanged.InvokeAsync(_value);
                 await BeginValidateAsync();
@@ -222,7 +235,10 @@ namespace Client.Components
         protected override void Submit()
         {
             if (GetReadOnlyState())
+            {
                 return;
+            }
+
             Time = TimeIntermediate;
         }
 
@@ -240,7 +256,10 @@ namespace Client.Components
         private string GetHourString()
         {
             if (TimeIntermediate == null)
+            {
                 return "--";
+            }
+
             var h = AmPm ? TimeIntermediate.Value.ToAmPmHour() : TimeIntermediate.Value.Hours;
             return Math.Min(23, Math.Max(0, h)).ToString(CultureInfo.InvariantCulture);
         }
@@ -248,14 +267,20 @@ namespace Client.Components
         private string GetMinuteString()
         {
             if (TimeIntermediate == null)
+            {
                 return "--";
+            }
+
             return $"{Math.Min(59, Math.Max(0, TimeIntermediate.Value.Minutes)):D2}";
         }
         
         private string GetSecondString()
         {
             if (TimeIntermediate == null)
+            {
                 return "--";
+            }
+
             return $"{Math.Min(59, Math.Max(0, TimeIntermediate.Value.Seconds)):D2}";
         }
 
@@ -297,7 +322,10 @@ namespace Client.Components
         private void OnPmClicked()
         {
             if (_timeSet.Hour <= 12) // "12:-- pm" is "12:--" in 24h
+            {
                 _timeSet.Hour += 12;
+            }
+
             _timeSet.Hour %= 24;
             UpdateTime();
             FocusAsync().AndForget();
@@ -387,10 +415,14 @@ namespace Client.Components
                 {
                     h = _timeSet.Hour % 12;
                     if (_timeSet.Hour % 12 == 0)
+                    {
                         h = 12;
+                    }
                 }
                 if (h == value)
+                {
                     return $"mud-clock-number mud-theme-{Color.ToDescriptionString()}";
+                }
             }
             else if (_currentView == OpenTo.Minutes && _timeSet.Minute == value ||
                      _currentView == OpenTo.Seconds && _timeSet.Second == value)
@@ -436,13 +468,20 @@ namespace Client.Components
         {
             var height = 40;
             if (_currentView is OpenTo.Minutes or OpenTo.Seconds)
+            {
                 height = 40;
+            }
+
             if (_currentView == OpenTo.Hours)
             {
                 if (!AmPm && _timeSet.Hour is > 0 and < 13)
+                {
                     height = 26;
+                }
                 else
+                {
                     height = 40;
+                }
             }
             return $"{height}%;";
         }
@@ -535,9 +574,13 @@ namespace Client.Components
             if (AmPm)
             {
                 if (IsAm && value == 12)
+                {
                     h = 0;
+                }
                 else if (IsPm && value < 12)
+                {
                     h = value + 12;
+                }
             }
             _timeSet.Hour = h;
 
@@ -639,7 +682,10 @@ namespace Client.Components
         protected override void HandleKeyDown(KeyboardEventArgs obj)
         {
             if (GetDisabledState() || GetReadOnlyState())
+            {
                 return;
+            }
+
             base.HandleKeyDown(obj);
             switch (obj.Key)
             {

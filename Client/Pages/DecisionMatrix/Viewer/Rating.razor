@@ -1,0 +1,82 @@
+﻿@page "/viewer/matrix/rating/{ElementGuid:guid}"
+
+@using Client.Singletons
+
+@inherits Client.Pages.Base.AuthenticatedPage
+
+@inject ApplicationState ApplicationState
+@inject NavigationManager NavigationManager
+@inject HttpClient Http
+@inject HttpUtility HttpUtility
+
+<h3>Rating</h3>
+<MudSimpleTable>
+    <thead>
+    <tr>
+        <th>Row Name</th>
+        <th>Rating</th>
+    </tr>
+    </thead>
+    <tbody>
+    @for (var row = 0; row < RowNames.Count; row++)
+    {
+        var localRow = row;
+        <tr>
+            <th>@RowNames[localRow]</th>
+            <td>
+                <MudNumericField @bind-Value="@RowRatings[localRow]" TextChanged="@UpdateState" Max="100" Min="0"/>
+            </td>
+        </tr>
+    }
+    <tr>
+        <th>Total</th>
+        <td>
+            <MudNumericField Value="@RowRatings.Sum()" ReadOnly="true" Error="@(!ValidRatings)" ErrorText="@ErrorText"/>
+        </td>
+    </tr>
+    </tbody>
+</MudSimpleTable>
+<MudButton Color="Color.Primary" OnClick="@SubmitRatings">Submit</MudButton>
+
+@code {
+    [Parameter]
+    public Guid ElementGuid { get; set; }
+    
+    protected override string RedirectUrl => "/login?redirect=" + Uri.EscapeDataString($"/viewer/matrix/rating/{ElementGuid}");
+    
+    private List<string> RowNames { get; } = [];
+    private int[] RowRatings { get; set; } = [];
+    private bool ValidRatings { get; set; } = true;
+    private string ErrorText { get; set; } = "";
+    
+    protected override async Task<bool> OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        
+        ApplicationState.SelectedMatrix ??= await HttpUtility.GetMatrix(Http, ElementGuid);
+        
+        RowNames.AddRange(ApplicationState.SelectedMatrix.RowNames);
+        RowRatings = new int[ApplicationState.SelectedMatrix.RowCount];
+        StateHasChanged();
+        return true;
+    }
+
+    private void UpdateState()
+    {
+        ValidRatings = true;
+        StateHasChanged();
+    }
+    
+    private void SubmitRatings()
+    {
+        if (RowRatings.Sum() != 100)
+        {
+            ValidRatings = false;
+            ErrorText = "Ratings must sum to 100";
+            return;
+        }
+        
+        ApplicationState.RowRatings = RowRatings;
+        NavigationManager.NavigateTo($"/viewer/matrix/interact/{ElementGuid}");
+    }
+}
