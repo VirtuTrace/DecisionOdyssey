@@ -103,6 +103,7 @@ public class UsersController(
         {
             logger.LogInformation("Failed to create user {email}", request.Email);
             var errors = result.Errors.Select(e => e.Description);
+            logger.LogInformation("Errors: {errors}", errors);
             return BadRequest(new { errors });
         }
 

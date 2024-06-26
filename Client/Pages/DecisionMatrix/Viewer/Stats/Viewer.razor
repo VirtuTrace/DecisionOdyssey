@@ -19,16 +19,17 @@
 
 @if (SelectedMatrixStats is null)
 {
-    <h3>Select Matrix Stats to View</h3>
+    <MudText Typo="Typo.h3">Select Matrix Stats to View</MudText>
+    <MudText Typo="Typo.h4">Selected Matrix: @SelectedMatrix.Name</MudText>
     @if (MatrixStats.Count == 0)
     {
-        <MudSelect T="string" Label="Matrices" Variant="Variant.Outlined" AnchorOrigin="Origin.BottomCenter">
+        <MudSelect T="string" Label="Stats" Variant="Variant.Outlined" AnchorOrigin="Origin.BottomCenter">
             <MudSelectItem Value=@("No stats available")/>
         </MudSelect>
     }
     else
     {
-        <MudSelect T="DecisionMatrixStatsData" @bind-Value="@SelectedMatrixStats" ToStringFunc="@_converter" Label="Matrices" Variant="Variant.Outlined" AnchorOrigin="Origin.BottomCenter">
+        <MudSelect T="DecisionMatrixStatsData" @bind-Value="@SelectedMatrixStats" ToStringFunc="@_converter" Label="Stats" Variant="Variant.Outlined" AnchorOrigin="Origin.BottomCenter">
             @foreach (var matrix in MatrixStats)
             {
                 <MudSelectItem Value="@matrix"/>
