@@ -355,7 +355,7 @@ public static class StatsUtility
                     decisionStrategies |= DecisionStrategies.EliminationByAspects;
                     decisionStrategies |= DecisionStrategies.Lexicographic;
                     decisionStrategies |= DecisionStrategies.RecognitionHeuristic;
-                    Console.Error.WriteLine($"Correlation between attribute ranks and number of boxes is positive [{correlation}]. This shouldn't happen.");
+                    Console.WriteLine($"[Warning] Correlation between attribute ranks and number of boxes is positive [{correlation}]. This shouldn't happen.");
                     break;
             }
         }

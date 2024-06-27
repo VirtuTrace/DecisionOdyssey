@@ -372,12 +372,8 @@ public class StatsCreator : IDisposable
                 new TitledStringStat("=== Stats Tracing ===", "")
             ];
         var numColumns = stats.ColumnCount;
-        var nextRow = 1;
-        foreach (var header in headers)
-        {
-            nextRow = InsertTitledStat(sheetIndex, header, nextRow, numColumns);
-        }
-        
+        var nextRow = headers.Aggregate(1, (current, header) => InsertTitledStat(sheetIndex, header, current, numColumns));
+
         _excelCreator.InsertString(sheetIndex, "Decision portrait", nextRow, 1, style: "Large");
         _excelCreator.MergeCells(sheetIndex, $"A{nextRow}", $"A{nextRow + stats.RowCount - 1}");
         var interactions = tracedInteractions.InteractionMap;
@@ -385,7 +381,7 @@ public class StatsCreator : IDisposable
         {
             for (var col = 0; col < stats.ColumnCount; col++)
             {
-                AddTracedInteraction(nextRow, col + 2, interactions[(row, col)], sheetIndex);
+                AddTracedInteraction(nextRow, col + 2, interactions.GetValueOrDefault((row, col), []), sheetIndex);
             }
             nextRow++;
         }
@@ -503,11 +499,18 @@ public class StatsCreator : IDisposable
             throw new ArgumentException("Row and column numbers must be greater than 0");
         }
 
-        var cellContents = interactions.Aggregate("",
-            (current, interaction) =>
-                current + $"({interaction.InteractionIndex + 1:D3}) {interaction.InteractionTime / 1000m:F4}\n");
-        cellContents = cellContents[..^1];  // Remove trailing new line
-        _excelCreator.InsertString(sheetIndex, cellContents, row, col, style: "Bordered");
+        if (interactions.Count == 0)
+        {
+            _excelCreator.InsertString(sheetIndex, "", row, col, style: "Bordered");
+        }
+        else
+        {
+            var cellContents = interactions.Aggregate("",
+                (current, interaction) =>
+                    current + $"({interaction.InteractionIndex + 1:D3}) {interaction.InteractionTime / 1000m:F4}\n");
+            cellContents = cellContents[..^1]; // Remove trailing new line
+            _excelCreator.InsertString(sheetIndex, cellContents, row, col, style: "Bordered");
+        }
     }
 
     public void Dispose()
