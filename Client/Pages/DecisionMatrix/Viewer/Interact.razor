@@ -13,7 +13,7 @@
 @using Common.DataStructures
 @using Common.DataStructures.Http.Requests
 
-@inherits Client.Pages.Base.AuthenticatedPage
+@inherits Client.Pages.Base.DecisionElementPage
 
 @inject ApplicationState ApplicationState
 @inject NavigationManager NavigationManager
@@ -24,6 +24,7 @@
 @inject BlobCreator BlobCreator
 
 <h3>Interact</h3>
+
 @if(TimerEnabled)
 {
     <CountdownTimer Duration="Matrix.AllottedTime" OnTimerElapsed="TimerExpired"/>
@@ -147,7 +148,8 @@
     [Parameter]
     public Guid ElementGuid { get; set; }
 
-    protected override string RedirectUrl => "/login?redirect=" + Uri.EscapeDataString($"/viewer/interact/{ElementGuid}");
+    protected override string AuthenticationFailRedirectUrl => "/login?redirect=" + Uri.EscapeDataString($"/viewer/interact/{ElementGuid}");
+    protected override string InvalidElementRedirectUrlType => "matrix";
 
     private static Random Random { get; } = new();
     
@@ -171,9 +173,9 @@
              return false;
          }
 
-        ApplicationState.SelectedMatrix ??= await HttpUtility.GetMatrix(Http, ElementGuid);
+         await ValidateSelectedElement(ElementGuid);
 
-        Matrix = ApplicationState.SelectedMatrix;
+        Matrix = ApplicationState.SelectedMatrix!;
         if (Matrix.Features.HasFlag(MatrixFeatures.Timer))
         {
             TimerEnabled = true;
@@ -225,7 +227,7 @@
             ["MatrixCell"] = Matrix[row, col],
             ["MatrixStatsCell"] = statCell,
             ["Cache"] = CellCache[row, col],
-            ["AllowRating"] = Matrix.Features.HasFlag(MatrixFeatures.ColumnRating)
+            ["AllowRating"] = Matrix.Features.HasFlag(MatrixFeatures.CellRating)
         };
         statCell.RecordStartInteraction();
         var alternative = Matrix.ColumnNames[col];

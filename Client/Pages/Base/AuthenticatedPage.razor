@@ -6,7 +6,7 @@
 @inject ApplicationState ApplicationState
 
 @code {
-    protected virtual string RedirectUrl => "/login";
+    protected virtual string AuthenticationFailRedirectUrl => "/login";
     
     protected override Task<bool> OnInitializedAsync()
     {
@@ -15,7 +15,7 @@
             return Task.FromResult(true);
         }
 
-        NavManager.NavigateTo(RedirectUrl);
+        NavManager.NavigateTo(AuthenticationFailRedirectUrl);
         return Task.FromResult(false);
 
     }

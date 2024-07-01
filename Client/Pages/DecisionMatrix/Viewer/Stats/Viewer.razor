@@ -7,6 +7,7 @@
 @using Client.Utility
 @using Common.DataStructures
 @using Common.Enums
+@using Color = MudBlazor.Color
 
 @inherits Client.Pages.Base.AuthenticatedPage
 
@@ -14,8 +15,6 @@
 @inject ApplicationState ApplicationState
 @inject HttpUtility HttpUtility
 @inject FileHandler FileHandler
-
-<h3>Stats View</h3>
 
 @if (SelectedMatrixStats is null)
 {
@@ -36,7 +35,6 @@
             }
         </MudSelect>
     }
-    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@SelectMatrixStats">Select</MudButton>
     <MudButton Variant="Variant.Filled" Color="Color.Tertiary" OnClick="@DownloadMatrixStats">Download Stats</MudButton>
 }
 else
@@ -89,7 +87,7 @@ else
                         {
                             <MudText Typo="Typo.body2">Text Interactions: @rowCell.TextTracking.StartTimes.Count</MudText>
                         }
-                        @if (SelectedMatrix.Features.HasFlag(MatrixFeatures.ColumnRating))
+                        @if (SelectedMatrix.Features.HasFlag(MatrixFeatures.CellRating))
                         {
                             <MudText Typo="Typo.body2">Rating: @rowCell.Rating</MudText>
                         }
@@ -97,6 +95,22 @@ else
                 }
             </tr>
         }
+
+        <tr></tr>
+        <tr>
+            <td></td>
+            @for (var i = 0; i < SelectedMatrix.ColumnCount; i++)
+            {
+                if (i == SelectedMatrixStats.Decision)
+                {
+                    <td style="background-color: #26b050"></td>
+                }
+                else
+                {
+                    <td style="background-color: #b32121"></td>
+                }
+            }
+        </tr>
         </tbody>
     </MudSimpleTable>
     if (SelectedMatrix.Features.HasFlag(MatrixFeatures.RowRating))
@@ -190,16 +204,14 @@ else
             return false;
         }
 
-        ApplicationState.SelectedMatrix ??= await HttpUtility.GetMatrix(Http, ElementGuid);
+        if(ApplicationState.SelectedMatrix is null || ApplicationState.SelectedMatrix.Guid != ElementGuid)
+        {
+            ApplicationState.SelectedMatrix = await HttpUtility.GetMatrix(Http, ElementGuid);
+        }
         SelectedMatrix = ApplicationState.SelectedMatrix;
         MatrixStats = await HttpUtility.GetMatrixStats(Http, ApplicationState.SelectedMatrix.Guid);
 
         return true;
-    }
-
-    private void SelectMatrixStats()
-    {
-        // TODO: Implement
     }
 
     private void DownloadMatrixStats()

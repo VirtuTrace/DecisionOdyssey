@@ -1,0 +1,28 @@
+﻿@using Client.Singletons
+@using Common.Enums
+
+@inherits AuthenticatedPage
+
+@inject NavigationManager NavManager
+@inject ApplicationState ApplicationState
+@inject HttpClient Http
+@inject HttpUtility HttpUtility
+
+@code {
+
+    protected virtual string InvalidElementRedirectUrlType => null!;
+
+    protected async Task ValidateSelectedElement(Guid elementGuid)
+    {
+        if(ApplicationState.SelectedMatrix is not null && ApplicationState.SelectedMatrix.Guid == elementGuid)
+        {
+            return;
+        }
+        
+        ApplicationState.SelectedMatrix = await HttpUtility.GetMatrix(Http, elementGuid);
+        var feature = ApplicationState.SelectedMatrix.Features;
+        NavManager.NavigateTo(feature.HasFlag(MatrixFeatures.RowRating) 
+            ? $"/viewer/{InvalidElementRedirectUrlType}/rating/{elementGuid}"
+            : $"/viewer/{InvalidElementRedirectUrlType}/interact/{elementGuid}");
+    }
+}

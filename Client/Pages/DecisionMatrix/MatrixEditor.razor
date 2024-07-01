@@ -153,7 +153,7 @@ else
                     </MudItem>
                     <MudItem xs="6">
                         <FlagCheckbox @bind-Flag="Matrix.Features" Color="@Color.Primary"
-                                      FlagValue="MatrixFeatures.ColumnRating" Label="Enable Bin Rating"/>
+                                      FlagValue="MatrixFeatures.CellRating" Label="Enable Bin Rating"/>
                     </MudItem>
                     <MudItem xs="6">
                         <MudSpacer />
@@ -702,7 +702,7 @@ else
                     var optionBool = GetBoolOptionValue(cell);
                     if (optionBool)
                     {
-                        options.Features |= MatrixFeatures.ColumnRating;
+                        options.Features |= MatrixFeatures.CellRating;
                     }
 
                     break;

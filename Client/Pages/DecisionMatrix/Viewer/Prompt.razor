@@ -8,7 +8,7 @@
 @using Client.Models.DecisionElements
 @using Client.Utility
 
-@inherits Client.Pages.Base.AuthenticatedPage
+@inherits Client.Pages.Base.DecisionElementPage
 
 @inject ApplicationState ApplicationState
 @inject NavigationManager NavigationManager
@@ -71,7 +71,8 @@ else
 @code {
     [Parameter] public Guid ElementGuid { get; set; }
 
-    protected override string RedirectUrl => "/login?redirect=" + Uri.EscapeDataString($"/viewer/matrix/prompt/{ElementGuid}");
+    protected override string AuthenticationFailRedirectUrl => "/login?redirect=" + Uri.EscapeDataString($"/viewer/matrix/prompt/{ElementGuid}");
+    protected override string InvalidElementRedirectUrlType => "matrix";
 
     private MatrixCell MatrixPrompt { get; set; } = null!;
     private MatrixCellBlobCache Cache { get; } = new();
@@ -87,8 +88,10 @@ else
             return false;
         }
         Loading = true;
-        ApplicationState.SelectedMatrix ??= await HttpUtility.GetMatrix(Http, ElementGuid);
-        MatrixPrompt = ApplicationState.SelectedMatrix.Prompt;
+        await ValidateSelectedElement(ElementGuid);
+        
+        // The above method will set the selected matrix (and navigate to the correct starting page if necessary)
+        MatrixPrompt = ApplicationState.SelectedMatrix!.Prompt;
         if (MatrixPrompt.Contains(MatrixDataType.Image))
         {
             Cache.ImageBlobUrl = await CreateBlobUrl(MatrixPrompt.Image, "image");
