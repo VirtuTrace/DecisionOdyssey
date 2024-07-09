@@ -15,6 +15,7 @@
 @inject ApplicationState ApplicationState
 @inject HttpUtility HttpUtility
 @inject FileHandler FileHandler
+@inject NavigationManager NavigationManager
 
 @if (SelectedMatrixStats is null)
 {
@@ -36,6 +37,7 @@
         </MudSelect>
     }
     <MudButton Variant="Variant.Filled" Color="Color.Tertiary" OnClick="@DownloadMatrixStats">Download Stats</MudButton>
+    <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="@ReturnToMatrixStatsSelection">Back</MudButton>
 }
 else
 {
@@ -184,7 +186,9 @@ else
             </MudSimpleTable>
         </MudItem>
         <MudItem xs="3"></MudItem>
-        <MudItem xs="6"></MudItem>
+        <MudItem xs="6">
+            <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="ReturnToUserStatsSelection">Back</MudButton>
+        </MudItem>
     </MudGrid>
 }
 
@@ -214,6 +218,17 @@ else
         return true;
     }
 
+    private void ReturnToUserStatsSelection()
+    {
+        SelectedMatrixStats = null;
+        StateHasChanged();
+    }
+
+    private void ReturnToMatrixStatsSelection()
+    {
+        NavigationManager.NavigateTo("viewer/matrix/stats/");
+    }
+    
     private void DownloadMatrixStats()
     {
         var statsCreator = new StatsCreator();

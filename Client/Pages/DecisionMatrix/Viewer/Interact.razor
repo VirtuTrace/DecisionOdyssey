@@ -29,56 +29,53 @@
 {
     <CountdownTimer Duration="Matrix.AllottedTime" OnTimerElapsed="TimerExpired"/>
 }
-@if (HasPrompt)
+@if (Loading)
 {
-    @if (Loading)
+    <MudText>Fetching Data...</MudText>
+    <MudProgressCircular Color="Color.Primary" Indeterminate="true"/>
+}
+else
+{
+    if (YoutubeVideoId is not null)
     {
-        <MudText>Fetching Data...</MudText>
-        <MudProgressCircular Color="Color.Primary" Indeterminate="true"/>
+        <MudPaper Height="720px" Elevation="0">
+            <iframe style="height: 100%;width: 100%;" src=@($"https://www.youtube-nocookie.com/embed/{YoutubeVideoId}")
+                    allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen>
+            </iframe>
+        </MudPaper>
     }
-    else
-    {
-        if (YoutubeVideoId is not null)
+    <MudGrid>
+        @if (Matrix.Prompt!.Contains(MatrixDataType.Video))
         {
-            <MudPaper Height="720px" Elevation="0">
-                <iframe style="height: 100%;width: 100%;" src=@($"https://www.youtube-nocookie.com/embed/{YoutubeVideoId}")
-                        allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen>
-                </iframe>
-            </MudPaper>
+            <MudItem xs="12">
+                <VideoElement VideoSource="@PromptCache.VideoBlobUrl"/>
+            </MudItem>
         }
-        <MudGrid>
-            @if (Matrix.Prompt!.Contains(MatrixDataType.Video))
+        else
+        {
+            @if (Matrix.Prompt.Contains(MatrixDataType.Image))
             {
                 <MudItem xs="12">
-                    <VideoElement VideoSource="@PromptCache.VideoBlobUrl"/>
+                    <img src="@PromptCache.ImageBlobUrl" alt="Image" width="400px" height="262px"/>
                 </MudItem>
             }
-            else
-            {
-                @if (Matrix.Prompt.Contains(MatrixDataType.Image))
-                {
-                    <MudItem xs="12">
-                        <img src="@PromptCache.ImageBlobUrl" alt="Image" width="400px" height="262px"/>
-                    </MudItem>
-                }
 
-                @if (Matrix.Prompt.Contains(MatrixDataType.Audio))
-                {
-                    <MudItem xs="12">
-                        <AudioElement AudioSource="@PromptCache.AudioBlobUrl"/>
-                    </MudItem>
-                }
-            }
-            @if (Matrix.Prompt.Contains(MatrixDataType.Text))
+            @if (Matrix.Prompt.Contains(MatrixDataType.Audio))
             {
                 <MudItem xs="12">
-                    <MudContainer Style="max-height: 300px; overflow-y: auto">
-                        <MudText Style="white-space: pre-wrap;">@Matrix.Prompt.Text</MudText>
-                    </MudContainer>
+                    <AudioElement AudioSource="@PromptCache.AudioBlobUrl"/>
                 </MudItem>
             }
-        </MudGrid>
-    }
+        }
+        @if (Matrix.Prompt.Contains(MatrixDataType.Text))
+        {
+            <MudItem xs="12">
+                <MudContainer Style="max-height: 300px; overflow-y: auto">
+                    <MudText Style="white-space: pre-wrap;">@Matrix.Prompt.Text</MudText>
+                </MudContainer>
+            </MudItem>
+        }
+    </MudGrid>
 }
 <MudPaper Class="mb-3" Elevation="0">
     <MudText>
@@ -161,7 +158,6 @@
     private int[] ColumnOrder { get; set; } = [];
     private MatrixCellBlobCache[,] CellCache { get; set; } = null!;
     private MatrixCellBlobCache PromptCache { get; set; } = null!;
-    private bool HasPrompt { get; set; }
     private string? YoutubeVideoId { get; set; }
     private bool Loading { get; set; }
 
@@ -182,9 +178,8 @@
         }
 
         Loading = true;
-        HasPrompt = true;
         PromptCache = new MatrixCellBlobCache();
-        YoutubeVideoId = await LoadMedia(Matrix.Prompt!, PromptCache);
+        YoutubeVideoId = await LoadMedia(Matrix.Prompt, PromptCache);
 
         RowOrder = Matrix.Features.HasFlag(MatrixFeatures.RowRandomization)
             ? Enumerable.Range(0, Matrix.RowCount).OrderBy(_ => Random.Next()).ToArray()
@@ -210,9 +205,24 @@
             }
         }
 
+        await LoadCache();
+
         Loading = false;
         StateHasChanged();
         return true;
+    }
+
+    private async Task LoadCache()
+    {
+        for(var row = 0; row < Matrix.RowCount; row++)
+        {
+            for (var col = 0; col < Matrix.ColumnCount; col++)
+            {
+                var cell = Matrix[row, col];
+                var cache = CellCache[row, col];
+                await LoadMedia(cell, cache);
+            }
+        }
     }
 
     private async Task OpenDialog(int row, int col)
@@ -269,10 +279,7 @@
                 var message = await response.Content.ReadAsStringAsync();
                 Snackbar.Add(message, Severity.Success);
                 ApplicationState.SelectedMatrix = null;
-                if (HasPrompt)
-                {
-                    await PromptCache.RevokeUrls(BlobCreator);
-                }
+                await PromptCache.RevokeUrls(BlobCreator);
 
                 foreach (var cache in CellCache)
                 {

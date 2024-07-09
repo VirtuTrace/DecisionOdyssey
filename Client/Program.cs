@@ -31,5 +31,10 @@ var http = host.Services.GetRequiredService<HttpClient>();
 await applicationState.InitializeAsync(localStorageAccessor);
 httpUtility.Initialize(applicationState);
 applicationState.Role = await httpUtility.GetUserRole(http);
+if (applicationState.Role == "")
+{
+    Console.WriteLine("Clearing old credentials");
+    await applicationState.ClearCredentials();
+}
 
 await host.RunAsync();

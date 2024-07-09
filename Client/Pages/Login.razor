@@ -114,6 +114,7 @@
             ApplicationState.Role = await HttpUtility.GetUserRole(Http);
             Console.WriteLine(ApplicationState.IsAdmin);
             Snackbar.Add("Login Successful!", Severity.Success);
+            StateHasChanged();
             NavigateToDestination();
         }
         else

@@ -187,6 +187,7 @@ else
             </MudButton>
         </ButtonTemplate>
     </MudFileUpload>
+    <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="GoBack">Back</MudButton>
     <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveMatrix">Save</MudButton>
     <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="ResetMatrix">Reset</MudButton>
     <MudButton Variant="Variant.Filled" Color="Color.Tertiary" OnClick="ShareMatrix" Disabled="@(!EditingExistingMatrix)">Share</MudButton>
@@ -347,6 +348,17 @@ else
         var dialog = await DialogService.ShowAsync<CopyUrlDialog>("Share Matrix", parameters: parameters, options: options);
         await dialog.Result;
     }
+
+    private async Task GoBack()
+    {
+        Matrix = null;
+        SelectedMatrix = Matrices[0];
+        foreach (var col in CellCache.SelectMany(row => row))
+        {
+            await col.RevokeUrls(BlobCreator);
+        }
+        StateHasChanged();
+    }
     
     
     private async Task ResetMatrix()
@@ -362,12 +374,9 @@ else
         if (!result.Canceled)
         {
             Matrix!.Reset();
-            foreach (var row in CellCache)
+            foreach (var col in CellCache.SelectMany(row => row))
             {
-                foreach (var col in row)
-                {
-                    await col.RevokeUrls(BlobCreator);
-                }
+                await col.RevokeUrls(BlobCreator);
             }
         }
     }

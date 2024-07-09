@@ -32,7 +32,8 @@ public static class ExtensionMethods
 
     public static void Initialize<T>(this List<List<T>> list, int rows, int columns) where T : new()
     {
-        list.Capacity = rows;
+        list.Clear();
+        list.Capacity = list.Capacity < rows ? rows : list.Capacity;
         for(var row = 0; row < rows; row++)
         {
             var rowList = new List<T>(columns);

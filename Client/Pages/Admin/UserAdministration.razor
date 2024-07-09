@@ -13,16 +13,45 @@
 
 <h3>User Administration</h3>
 
-<MudItem xs="12" sm="6" md="4">
-    <MudAutocomplete T="UserDto" Label="Users" @bind-Value="SelectedUser" SearchFunc="@FindUsers"
-                     ResetValueOnEmptyText="@ResetValueOnEmptyText"
-                     CoerceText="@CoerceText" CoerceValue="@CoerceValue" ToStringFunc="UserToString"
-                     AdornmentIcon="@Icons.Material.Filled.Search" AdornmentColor="Color.Primary" />
-    @if (SelectedUser is not null)
-    {
-        <UserAdministrator User="SelectedUser" @bind-UserRole="SelectedUserRole" @bind-UserLocked="SelectedUserLocked" />
-    }
-</MudItem>
+@* <MudItem xs="12" sm="6" md="4"> *@
+@*     <MudAutocomplete T="UserDto" Label="Users" @bind-Value="SelectedUser" SearchFunc="@FindUsers" *@
+@*                      ResetValueOnEmptyText="@ResetValueOnEmptyText" *@
+@*                      CoerceText="@CoerceText" CoerceValue="@CoerceValue" ToStringFunc="UserToString" *@
+@*                      AdornmentIcon="@Icons.Material.Filled.Search" AdornmentColor="Color.Primary" /> *@
+@*     @if (SelectedUser is not null) *@
+@*     { *@
+@*         <UserAdministrator User="SelectedUser" @bind-UserRole="SelectedUserRole" @bind-UserLocked="SelectedUserLocked" /> *@
+@*     } *@
+@* </MudItem> *@
+@if (Users is null)
+{
+    
+}
+else
+{
+    <MudTable Items="@Users" Hover="true" Filter="UserFilterFuncWrapper" @bind-SelectedItem="SelectedUser">
+        <ToolBarContent>
+            <MudText Typo="Typo.h6">Users</MudText>
+            <MudSpacer/>
+            <MudTextField @bind-Value="searchString" Placeholder="Search" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+        </ToolBarContent>
+        <HeaderContent>
+            <MudTh>First Name</MudTh>
+            <MudTh>Last Name</MudTh>
+            <MudTh>Role</MudTh>
+            <MudTh>Locked</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="First Name">@context.FirstName</MudTd>
+            <MudTd DataLabel="Last Name">@context.LastName</MudTd>
+            <MudTd DataLabel="Role">@context.Email</MudTd>
+            <MudTd DataLabel="Locked">@context.SecondaryEmail</MudTd>
+        </RowTemplate>
+        <PagerContent>
+            <MudTablePager/>
+        </PagerContent>
+    </MudTable>
+}
 
 @code {
     private static readonly Dictionary<string, List<string>> ManageableRoles = new()
@@ -32,12 +61,11 @@
     };
 
     private UserDto? _selectedUser;
-
-    private bool CoerceText { get; set; }
-    private bool CoerceValue { get; set; }
-    private bool ResetValueOnEmptyText { get; set; }
+    
+    private List<UserDto>? Users { get; set; }
     private string SelectedUserRole { get; set; } = string.Empty;
     private bool SelectedUserLocked { get; set; }
+    private string searchString { get; set; } = string.Empty;
     private static Func<UserDto, string> UserToString => user => user.FirstName + " " + user.LastName;
 
     private UserDto? SelectedUser
@@ -47,6 +75,23 @@
         {
             GetUserRoleAsync(value);
         }
+    }
+    
+    private bool UserFilterFuncWrapper(UserDto user) => UserFilterFunc(user, searchString); 
+    
+    private bool UserFilterFunc(UserDto user, string filter)
+    {
+        if (!filter.Contains(" "))
+        {
+            return user.FirstName.Contains(filter, StringComparison.OrdinalIgnoreCase) ||
+                   user.LastName.Contains(filter, StringComparison.OrdinalIgnoreCase);
+        }
+
+        var parts = filter.Split(" ");
+        return (user.FirstName.Contains(parts[0], StringComparison.OrdinalIgnoreCase) &&
+                user.LastName.Contains(parts[1], StringComparison.OrdinalIgnoreCase)) ||
+               (user.FirstName.Contains(parts[1], StringComparison.OrdinalIgnoreCase) &&
+                user.LastName.Contains(parts[0], StringComparison.OrdinalIgnoreCase));
     }
 
     private async Task GetUserRoleAsync(UserDto? user)
