@@ -1,6 +1,8 @@
 ﻿@page "/viewer/matrix/stats/{ElementGuid:guid}"
 
+@using Client.Components.Dialogs
 @using Client.JSWrappers
+@using Client.Models.Data
 @using Client.Models.DecisionElements.DecisionMatrix
 @using Client.Singletons
 @using Client.Stats
@@ -16,6 +18,7 @@
 @inject HttpUtility HttpUtility
 @inject FileHandler FileHandler
 @inject NavigationManager NavigationManager
+@inject IDialogService DialogService
 
 @if (SelectedMatrixStats is null)
 {
@@ -229,13 +232,31 @@ else
         NavigationManager.NavigateTo("viewer/matrix/stats/");
     }
     
-    private void DownloadMatrixStats()
+    private async Task DownloadMatrixStats()
     {
-        var statsCreator = new StatsCreator();
-        statsCreator.AddStats(SelectedMatrix, MatrixStats);
+        var options = new DialogOptions
+        {
+            MaxWidth = MaxWidth.Medium, CloseOnEscapeKey = true
+        };
+        var parameters = new DialogParameters
+        {
+            ["Stats"] = MatrixStats
+        };
+        var dialog = await DialogService.ShowAsync<TimeRangeDialog>("Select Time Range", options: options, parameters: parameters);
+        var result = await dialog.Result;
+        if (result.Canceled)
+        {
+            return;
+        }
+        
+        var dateRange = (TimeRange)result.Data;
+        var stats = MatrixStats.Where(stats => 
+            (dateRange.Start is null || stats.StartTime >= dateRange.Start) 
+            && (dateRange.End is null || stats.StartTime <= dateRange.End)).ToList();
+        using var statsCreator = new StatsCreator();
+        statsCreator.AddStats(SelectedMatrix, stats);
         var memoryStream = statsCreator.Save();
         var bytes = memoryStream.ToArray();
         FileHandler.DownloadZipAsync(bytes, $"{SelectedMatrix.Name}_stats.zip");
-        statsCreator.Dispose();
     }
 }

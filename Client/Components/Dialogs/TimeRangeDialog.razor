@@ -1,0 +1,201 @@
+﻿@using Client.Models.Data
+@using Common.DataStructures
+
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <DialogContent>
+        <MudGrid>
+            <MudItem xs="6">
+                <MudCheckBox @bind-Value="SetBeginTime" Label="Set Start Date" />
+            </MudItem>
+            <MudItem xs="6">
+                @if (SetBeginTime)
+                {
+                    <MudDatePicker Label="Start Date" Editable="true" @bind-Date="StartDate" Placeholder="Select Start Date" />
+                    <MudTimePicker Label="Start Time" AmPm="true" @bind-Time="StartTime" />
+                }
+            </MudItem>
+            <MudItem xs="6">
+                <MudCheckBox @bind-Value="SetEndTime" Label="Set End Date" />
+            </MudItem>
+            <MudItem xs="6">
+                @if (SetEndTime)
+                {
+                    <MudDatePicker Label="End Date" Editable="true" @bind-Date="EndDate" Placeholder="Select End Date" />
+                    <MudTimePicker Label="End Time" AmPm="true" @bind-Time="EndTime" />
+                }
+            </MudItem>
+        </MudGrid>
+        <MudText>Selecting @NumStats stats to download</MudText>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" OnClick="@Submit">Ok</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private bool _setBeginTime;
+    private DateTime? _startDate;
+    private TimeSpan? _startTime;
+    private bool _setEndTime;
+    private DateTime? _endDate;
+    private TimeSpan? _endTime;
+
+    [CascadingParameter]
+    public MudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter] 
+    public List<DecisionMatrixStatsData> Stats { get; set; } = null!;
+
+    private bool SetBeginTime
+    {
+        get => _setBeginTime;
+        set
+        {
+            _setBeginTime = value;
+            if (!value)
+            {
+                StartDate = null;
+                StartTime = null;
+            }
+        }
+    }
+
+    private DateTime? StartDate
+    {
+        get => _startDate;
+        set
+        {
+            _startDate = value;
+            RecalculateNumStats();
+        }
+    }
+
+    private TimeSpan? StartTime
+    {
+        get => _startTime;
+        set
+        {
+            _startTime = value;
+            RecalculateNumStats();
+        }
+    }
+
+    private bool SetEndTime
+    {
+        get => _setEndTime;
+        set
+        {
+            _setEndTime = value;
+            if (!value)
+            {
+                EndDate = null;
+                EndTime = null;
+            }
+        }
+    }
+
+    private DateTime? EndDate
+    {
+        get => _endDate;
+        set
+        {
+            _endDate = value;
+            RecalculateNumStats();
+        }
+    }
+
+    private TimeSpan? EndTime
+    {
+        get => _endTime;
+        set
+        {
+            _endTime = value;
+            RecalculateNumStats();
+        }
+    }
+
+    private int NumStats { get; set; }
+
+    protected override void OnInitialized()
+    {
+        NumStats = Stats.Count;
+    }
+    
+    private void RecalculateNumStats()
+    {
+        DateTime? start = null;
+        DateTime? end = null;
+        if (SetBeginTime)
+        {
+            if (StartDate is null)
+            {
+                return;
+            }
+            
+            start = StartDate; // Create a new DateTime object with the same date as StartDate
+            if (StartTime is not null)
+            {
+                start = start.Value.Add(StartTime.Value);
+            }
+        }
+        
+        if (SetEndTime)
+        {
+            if (EndDate is null)
+            {
+                return;
+            }
+            
+            end = EndDate; // Create a new DateTime object with the same date as EndDate
+            if (EndTime is not null)
+            {
+                end = end.Value.Add(EndTime.Value);
+            }
+        }
+        
+        NumStats = Stats.Count(s => (start is null || s.StartTime >= start) && (end is null || s.StartTime <= end));
+    }
+
+    private void Submit()
+    {
+        if (SetBeginTime)
+        {
+            if (StartDate is null)
+            {
+                Snackbar.Add("Please select a start date", Severity.Error);
+                return;
+            }
+        }
+        
+        if (SetEndTime)
+        {
+            if (EndDate is null)
+            {
+                Snackbar.Add("Please select an end date", Severity.Error);
+                return;
+            }
+        }
+
+        if (StartDate is not null && StartTime is not null)
+        {
+            StartDate = StartDate.Value.Add(StartTime.Value);
+        }
+        
+        if (EndDate is not null && EndTime is not null)
+        {
+            EndDate = EndDate.Value.Add(EndTime.Value);
+        }
+
+        var timeRange = new TimeRange
+        {
+            Start = StartDate,
+            End = EndDate
+        };
+        MudDialog.Close(DialogResult.Ok(timeRange));
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

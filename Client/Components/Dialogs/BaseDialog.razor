@@ -1,0 +1,12 @@
+﻿
+@code {
+    [CascadingParameter]
+    public MudDialogInstance MudDialog { get; set; } = null!;
+
+    protected virtual void Submit()
+    {
+        throw new NotImplementedException();
+    }
+    
+    protected void Cancel() => MudDialog.Cancel();
+}
