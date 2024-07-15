@@ -25,7 +25,7 @@ public class AdminController(
     #region User Control
 
     [HttpGet("users")]
-    public async Task<ActionResult<List<UserDto>>> GetUsers(string? email = null, string? firstname = null,
+    public async Task<ActionResult<List<AdvanceUserDto>>> GetUsers(string? email = null, string? firstname = null,
                                                             string? lastname = null, string? name = null)
     {
         var userQuery = _context.Users.AsQueryable();
@@ -49,7 +49,14 @@ public class AdminController(
             userQuery = userQuery.Where(u => u.FirstName.Contains(name) || u.LastName.Contains(name));
         }
 
-        var users = await userQuery.Select(u => u.ToDto()).ToListAsync();
+        var queriedUsers = await userQuery.ToListAsync();
+        var users = new List<AdvanceUserDto>();
+        foreach (var user in queriedUsers)
+        {
+            var roles = await _userManager.GetRolesAsync(user);
+            var role = GetHighestRole(roles);
+            users.Add(new AdvanceUserDto(user.ToDto(), role));
+        }
         return Ok(users);
     }
 

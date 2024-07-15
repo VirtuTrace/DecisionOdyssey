@@ -3,6 +3,8 @@
 @using Client.Singletons
 @using Common.DataStructures.Dtos
 @using Client.Components
+@using Client.Models.Data
+@using Client.Models.Enums
 
 @inherits Client.Pages.Base.AdminAuthenticatedPage
 
@@ -13,122 +15,128 @@
 
 <h3>User Administration</h3>
 
-@* <MudItem xs="12" sm="6" md="4"> *@
-@*     <MudAutocomplete T="UserDto" Label="Users" @bind-Value="SelectedUser" SearchFunc="@FindUsers" *@
-@*                      ResetValueOnEmptyText="@ResetValueOnEmptyText" *@
-@*                      CoerceText="@CoerceText" CoerceValue="@CoerceValue" ToStringFunc="UserToString" *@
-@*                      AdornmentIcon="@Icons.Material.Filled.Search" AdornmentColor="Color.Primary" /> *@
-@*     @if (SelectedUser is not null) *@
-@*     { *@
-@*         <UserAdministrator User="SelectedUser" @bind-UserRole="SelectedUserRole" @bind-UserLocked="SelectedUserLocked" /> *@
-@*     } *@
-@* </MudItem> *@
 @if (Users is null)
 {
     
 }
 else
 {
-    <MudTable Items="@Users" Hover="true" Filter="UserFilterFuncWrapper" @bind-SelectedItem="SelectedUser">
-        <ToolBarContent>
-            <MudText Typo="Typo.h6">Users</MudText>
-            <MudSpacer/>
-            <MudTextField @bind-Value="searchString" Placeholder="Search" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
-        </ToolBarContent>
-        <HeaderContent>
-            <MudTh>First Name</MudTh>
-            <MudTh>Last Name</MudTh>
-            <MudTh>Role</MudTh>
-            <MudTh>Locked</MudTh>
-        </HeaderContent>
-        <RowTemplate>
-            <MudTd DataLabel="First Name">@context.FirstName</MudTd>
-            <MudTd DataLabel="Last Name">@context.LastName</MudTd>
-            <MudTd DataLabel="Role">@context.Email</MudTd>
-            <MudTd DataLabel="Locked">@context.SecondaryEmail</MudTd>
-        </RowTemplate>
-        <PagerContent>
-            <MudTablePager/>
-        </PagerContent>
-    </MudTable>
+    <MudContainer Class="d-flex flex-row flex-grow-1 gap-4">
+        <MudTextField @bind-Value="SearchString" Placeholder="Search" Adornment="Adornment.Start" Immediate="true"
+                      AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+        <MudButton Color="Color.Success" Variant="Variant.Filled" OnClick="UpdateUsers">Update Users</MudButton>
+    </MudContainer>
+    <MudSimpleTable Hover="true" Dense="true">
+        <thead>
+        <tr>
+            <th><b>First Name</b></th>
+            <th><b>Last Name</b></th>
+            <th><b>Role</b></th>
+            <th><b>Locked</b></th>
+        </tr>
+        </thead>
+        <tbody>
+            @foreach (var user in Users)
+            {
+                <tr>
+                    <td>@user.FirstName</td>
+                    <td>@user.LastName</td>
+                    <td>
+                        <MudSelect Label="Role" @bind-Value="user.Role">
+                            @foreach (var role in ManageableRoles[ApplicationState.Role])
+                            {
+                                <MudSelectItem Value="@role">@role</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </td>
+                    <td><MudCheckBox @bind-Value="user.IsLockedOut" Color="Color.Primary" /></td>
+                </tr>
+            }
+        </tbody>
+    </MudSimpleTable>
 }
 
 @code {
+
     private static readonly Dictionary<string, List<string>> ManageableRoles = new()
     {
-        {"SuperAdmin", [ "Admin", "Researcher", "User", "Guest" ]},
-        { "Admin", [ "Researcher", "User", "Guest" ] }
+        ["SuperAdmin"] = ["Admin", "Researcher", "User", "Guest"],
+        ["Admin"] = ["Researcher", "User", "Guest"]
     };
 
-    private UserDto? _selectedUser;
-    
-    private List<UserDto>? Users { get; set; }
-    private string SelectedUserRole { get; set; } = string.Empty;
-    private bool SelectedUserLocked { get; set; }
-    private string searchString { get; set; } = string.Empty;
-    private static Func<UserDto, string> UserToString => user => user.FirstName + " " + user.LastName;
+    private string? _searchString;
 
-    private UserDto? SelectedUser
+    private List<AdministratedUser>? AllUsers { get; set; }
+    private List<AdministratedUser>? Users { get; set; }
+
+    private string? SearchString
     {
-        get => _selectedUser;
+        get => _searchString;
         set
         {
-            GetUserRoleAsync(value);
+            _searchString = value;
+            Users = string.IsNullOrWhiteSpace(value)
+                ? AllUsers
+                : AllUsers?.Where(u => u.FirstName.Contains(value, StringComparison.OrdinalIgnoreCase) || u.LastName.Contains(value, StringComparison.OrdinalIgnoreCase)).ToList();
         }
     }
-    
-    private bool UserFilterFuncWrapper(UserDto user) => UserFilterFunc(user, searchString); 
-    
-    private bool UserFilterFunc(UserDto user, string filter)
+
+    protected override async Task<bool> OnInitializedAsync()
     {
-        if (!filter.Contains(" "))
+        var valid = await base.OnInitializedAsync();
+        if (!valid)
         {
-            return user.FirstName.Contains(filter, StringComparison.OrdinalIgnoreCase) ||
-                   user.LastName.Contains(filter, StringComparison.OrdinalIgnoreCase);
+            return false;
         }
 
-        var parts = filter.Split(" ");
-        return (user.FirstName.Contains(parts[0], StringComparison.OrdinalIgnoreCase) &&
-                user.LastName.Contains(parts[1], StringComparison.OrdinalIgnoreCase)) ||
-               (user.FirstName.Contains(parts[1], StringComparison.OrdinalIgnoreCase) &&
-                user.LastName.Contains(parts[0], StringComparison.OrdinalIgnoreCase));
+        var allUsers = await HttpUtility.GetUsersForAdmin(Http);
+        AllUsers = allUsers.Select(u => new AdministratedUser(u)).ToList();
+        Users = AllUsers;
+        return true;
     }
 
-    private async Task GetUserRoleAsync(UserDto? user)
+    private async Task UpdateUsers()
     {
-        if (user is null)
+        var failed = false;
+        foreach (var user in AllUsers!.Where(user => user.ChangedUserData != ChangedUserData.None))
         {
-            return;
+            if (user.ChangedUserData.HasFlag(ChangedUserData.Role))
+            {
+                var successful = await HttpUtility.UpdateUserRole(Http, user.Guid, user.Role);
+                if (!successful)
+                {
+                    Snackbar.Add("Failed to update user role", Severity.Error);
+                    failed = true;
+                }
+            }
+
+            if (user.ChangedUserData.HasFlag(ChangedUserData.LockoutEnd))
+            {
+                bool successful;
+                if (user.IsLockedOut)
+                {
+                    successful = await HttpUtility.LockUser(Http, user.Guid);
+                }
+                else
+                {
+                    successful = await HttpUtility.UnlockUser(Http, user.Guid);
+                }
+
+                if (!successful)
+                {
+                    Snackbar.Add("Failed to update user lockout", Severity.Error);
+                    failed = true;
+                }
+            }
         }
 
-        var response = await HttpUtility.GetUserStatus(Http, user.Guid);
-        Console.WriteLine(response);
-        if (response is not null)
+        if (failed)
         {
-            SelectedUserRole = response.Role;
-            SelectedUserLocked = response.Locked;
+            Snackbar.Add("Some users updated", Severity.Warning);
         }
         else
         {
-            Snackbar.Add("Failed to get user role!", Severity.Error);
-        }
-        
-        _selectedUser = user;
-        StateHasChanged();
-    }
-    
-    private async Task<IEnumerable<UserDto>> FindUsers(string value)
-    {
-        if (value.Contains(" "))
-        {
-            var parts = value.Split(" ");
-            var users = await Http.GetFromJsonAsync<IEnumerable<UserDto>>($"api/admin/users?firstName={parts[0]}&lastName={parts[1]}");
-            return users ?? new List<UserDto>();
-        }
-        else
-        {
-            var users = await Http.GetFromJsonAsync<IEnumerable<UserDto>>($"api/admin/users?name={value}");
-            return users ?? new List<UserDto>();
+            Snackbar.Add("Users updated", Severity.Success);
         }
     }
 }

@@ -106,7 +106,8 @@ public class UsersController(
             logger.LogInformation("Errors: {errors}", errors);
             return BadRequest(new { errors });
         }
-
+        
+        await _userManager.AddToRoleAsync(user, "User");
         logger.LogInformation("Created user {email}", user.Email);
         
         return Created();
@@ -200,7 +201,6 @@ public class UsersController(
         
         // Add guest role
         await _userManager.AddToRoleAsync(guest, "Guest");
-        
         logger.LogInformation("Created guest {email}", guest.Email);
         
         var accessToken = await GenerateAccessToken(guest);

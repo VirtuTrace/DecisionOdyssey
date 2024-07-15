@@ -25,7 +25,8 @@ public static class MappingExtensionMethods
             Email = user.Email,
             SecondaryEmail = user.SecondaryEmail,
             FirstName = user.FirstName,
-            LastName = user.LastName
+            LastName = user.LastName,
+            LockoutEnd = user.LockoutEnd
         };
     }
 

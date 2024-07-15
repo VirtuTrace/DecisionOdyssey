@@ -9,6 +9,7 @@ using Client.Models.DecisionElements;
 using Client.Models.DecisionElements.DecisionMatrix;
 using Client.Utility;
 using Common.DataStructures;
+using Common.DataStructures.Dtos;
 using Common.DataStructures.Dtos.DecisionElements;
 using Common.DataStructures.Dtos.DecisionElements.Stats;
 using Common.DataStructures.Http.Requests;
@@ -305,6 +306,19 @@ public partial class HttpUtility
         return content;
     }
     
+    public async Task<List<AdvanceUserDto>> GetUsersForAdmin(HttpClient http)
+    {
+        var response = await ExecuteGetRequest(http, "api/admin/users");
+        if (!response.IsSuccessStatusCode)
+        {
+            Console.WriteLine("Failed to get users");
+            return [];
+        }
+        
+        var content = await response.Content.ReadFromJsonAsync<List<AdvanceUserDto>>();
+        return content ?? [];
+    }
+    
     public static async Task<bool> LockUser(HttpClient http, Guid userGuid)
     {
         var response = await http.PostAsync($"api/admin/user/{userGuid}/lock", null);
@@ -313,7 +327,7 @@ public partial class HttpUtility
     
     public static async Task<bool> UnlockUser(HttpClient http, Guid userGuid)
     {
-        var response = await http.DeleteAsync($"api/admin/user/{userGuid}/lock");
+        var response = await http.PostAsync($"api/admin/user/{userGuid}/unlock", null);
         return response.IsSuccessStatusCode;
     }
     
