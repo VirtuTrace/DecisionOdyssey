@@ -14,6 +14,7 @@ using Common.DataStructures.Dtos.DecisionElements;
 using Common.DataStructures.Dtos.DecisionElements.Stats;
 using Common.DataStructures.Http.Requests;
 using Common.DataStructures.Http.Responses;
+using Common.Enums;
 
 namespace Client.Singletons;
 
@@ -62,6 +63,46 @@ public partial class HttpUtility
 
             return response;
         }
+    }
+
+    private async Task<HttpResponseMessage> ExecutePostRequest<T>(HttpClient http, string endpoint, T payload)
+    {
+        while (true)
+        {
+            http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _applicationState.AccessToken);
+            var response = await http.PostAsJsonAsync(endpoint, payload);
+            if (response.IsSuccessStatusCode)
+            {
+                return response;
+            }
+
+            if (response.StatusCode != HttpStatusCode.Unauthorized)
+            {
+                return response;
+            }
+
+            Console.WriteLine("Failed to execute get request");
+            if (await CheckAndRefreshToken(http, response))
+            {
+                Console.WriteLine("Retrying request");
+                continue;
+            }
+
+            return response;
+        }
+    }
+    
+    public async Task<UserDto?> GetUser(HttpClient http)
+    {
+        var response = await ExecuteGetRequest(http, "api/users");
+        if (!response.IsSuccessStatusCode)
+        {
+            await Console.Error.WriteLineAsync("Failed to get user");
+            return null;
+        }
+        
+        var user = await response.Content.ReadFromJsonAsync<UserDto>(JsonOptions);
+        return user;
     }
 
     public async Task<List<DecisionMatrixDto>> GetMatrices(HttpClient http)
@@ -335,5 +376,56 @@ public partial class HttpUtility
     {
         var response = await http.PostAsJsonAsync($"api/admin/user/{userGuid}/role", role);
         return response.IsSuccessStatusCode;
+    }
+    
+    public async Task<bool> UpdateUserEmail(HttpClient http, string email)
+    {
+        var emailRequest = new ChangeEmailRequest
+        {
+            NewEmail = email
+        };
+        var response = await ExecutePostRequest(http, "api/users/email", emailRequest);
+        return response.IsSuccessStatusCode;
+    }
+    
+    public async Task<bool> UpdateUserSecondaryEmail(HttpClient http, string? secondaryEmail)
+    {
+        var emailRequest = new ChangeEmailRequest
+        {
+            NewEmail = secondaryEmail
+        };
+        var response = await ExecutePostRequest(http, "api/users/secondary-email", emailRequest);
+        return response.IsSuccessStatusCode;
+    }
+    
+    public async Task<PasswordError> UpdateUserPassword(HttpClient http, string currentPassword, string newPassword)
+    {
+        var passwordRequest = new ChangePasswordRequest
+        {
+            CurrentPassword = currentPassword,
+            NewPassword = newPassword
+        };
+        var response = await ExecutePostRequest(http, "api/users/password", passwordRequest);
+        if (response.IsSuccessStatusCode)
+        {
+            return PasswordError.None;
+        }
+        
+        var errorCodes = await response.Content.ReadFromJsonAsync<List<string>>();
+        if (errorCodes is null || errorCodes.Count == 0)
+        {
+            return PasswordError.UnknownError;
+        }
+        
+        return errorCodes[0] switch
+        {
+            "PasswordTooShort" => PasswordError.PasswordTooShort,
+            "PasswordRequiresNonAlphanumeric" => PasswordError.PasswordRequiresNonAlphanumeric,
+            "PasswordRequiresDigit" => PasswordError.PasswordRequiresDigit,
+            "PasswordRequiresLower" => PasswordError.PasswordRequiresLower,
+            "PasswordRequiresUpper" => PasswordError.PasswordRequiresUpper,
+            "PasswordRequiresUniqueChars" => PasswordError.PasswordRequiresUniqueChars,
+            _ => PasswordError.PasswordRequirementsNotMet
+        };
     }
 }

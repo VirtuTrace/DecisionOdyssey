@@ -12,7 +12,7 @@ builder.RootComponents.Add<HeadOutlet>("head::after");
 #if DEBUG
 builder.Services.AddScoped(_ => new HttpClient { BaseAddress = new Uri("https://localhost:7280/") });
 #else
-builder.Services.AddScoped(_ => new HttpClient { BaseAddress = new Uri("https://decisionodyssey.ddns.net/") });
+builder.Services.AddScoped(_ => new HttpClient { BaseAddress = new Uri("https://3.141.31.200/") });
 #endif
 builder.Services.AddMudServices();
 builder.Services.AddScoped<LocalStorageAccessor>();

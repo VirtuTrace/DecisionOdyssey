@@ -13,7 +13,6 @@ using Microsoft.IdentityModel.Tokens;
 using Server.Contexts;
 using Server.Models;
 using Server.Utility;
-using LoginRequest = Microsoft.AspNetCore.Identity.Data.LoginRequest;
 
 namespace Server.Controllers;
 
@@ -26,24 +25,37 @@ public class UsersController(
     ILogger<UsersController> logger,
     UserManager<User> userManager) : ApplicationControllerBase(context, logger, userManager)
 {
-    private const int RefreshTokenLifetime = 7; // Days
-    private const int GuestRefreshTokenLifetime = 1; // Days
-    private const int AccessTokenLifetime = 60; // Minutes
+    private const int RefreshTokenLifetime = 7;         // Days
+    private const int GuestRefreshTokenLifetime = 1;    // Days
+    private const int AccessTokenLifetime = 60;         // Minutes
     private const int MaxFailedAttempts = 5;
-    private const int TimeoutDuration = 5; // Minutes
+    private const int TimeoutDuration = 5;              // Minutes
     
     private readonly ApplicationDbContext _context = context;
     private readonly UserManager<User> _userManager = userManager;
 
     private IPasswordHasher<User> PasswordHasher => _userManager.PasswordHasher;
 
-    [Authorize(Roles = "SuperAdmin,Admin")]
+    /*[Authorize(Roles = "SuperAdmin,Admin")]
     [HttpGet]
     public async Task<ActionResult<IEnumerable<UserDto>>> GetUsers()
     {
         var users = await _context.Users.ToListAsync();
         var userDtos = users.Select(u => u.ToDto());
         return Ok(userDtos);
+    }*/
+    
+    [HttpGet]
+    public async Task<ActionResult<UserDto>> GetUser()
+    {
+        var userResult = await GetUserFromToken();
+        if (userResult.Result is not null)
+        {
+            return userResult.Result;
+        }
+        
+        var user = userResult.Value!;
+        return Ok(user.ToDto());
     }
     
     // DELETE: api/User/34e5705e-f901-45a5-9c88-e645984d2931
@@ -291,7 +303,7 @@ public class UsersController(
         return Ok();
     }
     
-    [HttpPost("change-password")]
+    [HttpPost("password")]
     public async Task<IActionResult> ChangePassword(ChangePasswordRequest request)
     {
         var userResult = await GetUserFromToken();
@@ -305,11 +317,50 @@ public class UsersController(
         if (!result.Succeeded)
         {
             logger.LogInformation("Failed to change password for user {email}", user.Email);
-            var errors = result.Errors.Select(e => e.Description);
+            var errors = result.Errors.Select(e => e.Code);
             return BadRequest(new { errors });
         }
 
         logger.LogInformation("Changed password for user {email}", user.Email);
+        return Ok();
+    }
+    
+    [HttpPost("email")]
+    public async Task<IActionResult> ChangeEmail(ChangeEmailRequest request)
+    {
+        var userResult = await GetUserFromToken();
+        if (userResult.Result is not null)
+        {
+            return userResult.Result;
+        }
+
+        var user = userResult.Value!;
+        if (request.NewEmail is null)
+        {
+            logger.LogInformation("New email is null for user {guid}", user.Guid);
+            return BadRequest(new { Message = "New email is required" });
+        }
+        
+        user.Email = request.NewEmail;
+        user.UserName = request.NewEmail;
+        await _context.SaveChangesAsync();
+        logger.LogInformation("Changed email for user {guid}", user.Guid);
+        return Ok();
+    }
+    
+    [HttpPost("secondary-email")]
+    public async Task<IActionResult> ChangeSecondaryEmail(ChangeEmailRequest request)
+    {
+        var userResult = await GetUserFromToken();
+        if (userResult.Result is not null)
+        {
+            return userResult.Result;
+        }
+
+        var user = userResult.Value!;
+        user.SecondaryEmail = request.NewEmail;
+        await _context.SaveChangesAsync();
+        logger.LogInformation("Changed secondary email for user {guid}", user.Guid);
         return Ok();
     }
     

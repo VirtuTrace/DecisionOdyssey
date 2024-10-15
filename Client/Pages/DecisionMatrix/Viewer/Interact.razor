@@ -12,6 +12,7 @@
 @using Client.Components
 @using Common.DataStructures
 @using Common.DataStructures.Http.Requests
+@using Common.DataStructures.Http.Responses
 
 @inherits Client.Pages.Base.DecisionElementPage
 
@@ -276,7 +277,7 @@ else
             }
             else
             {
-                var message = await response.Content.ReadAsStringAsync();
+                var message = await response.Content.ReadFromJsonAsync<StatusMessage>() ?? new StatusMessage{ Message = "Decision Made!" };
                 Snackbar.Add(message, Severity.Success);
                 ApplicationState.SelectedMatrix = null;
                 await PromptCache.RevokeUrls(BlobCreator);

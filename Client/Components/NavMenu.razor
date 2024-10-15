@@ -13,7 +13,8 @@
         <MudNavLink Href="logout" Icon="@Icons.Material.Filled.Logout">Logout</MudNavLink>
         @if(!ApplicationState.GuestLogin)
         {
-            <MudNavLink Href="/" Icon="@Icons.Material.Filled.Home">Home</MudNavLink>
+            <MudNavLink Href="home" Icon="@Icons.Material.Filled.Home">Home</MudNavLink>
+            <MudNavLink Href="profile" Icon="@Icons.Material.Filled.AccountCircle">Profile</MudNavLink>
             @if (ApplicationState.IsAdmin)
             {
                 <MudNavGroup Title="Admin" Icon="@Icons.Material.Filled.AdminPanelSettings">

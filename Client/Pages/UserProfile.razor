@@ -1,0 +1,333 @@
+﻿@page "/profile"
+
+@using Client.Singletons
+@using Common.DataStructures.Dtos
+@using Common.DataStructures.Http.Requests
+@using Common.Enums
+
+@inject HttpClient Http
+@inject HttpUtility HttpUtility
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+
+<h3>Profile</h3>
+@if(User is null){
+    <p>Loading...</p>
+}
+else
+{
+    <MudSimpleTable>
+        @*<thead>
+            
+        </thead>*@
+        <tbody>
+        <tr>
+            <th>
+                First Name
+            </th>
+            <td>
+                @UserUpdateRequest.FirstName
+            </td>
+        </tr>
+        <tr>
+            <th>
+                Last Name
+            </th>
+            <td>
+                @UserUpdateRequest.LastName
+            </td>
+        </tr>
+        <tr>
+            <th>
+                Email
+            </th>
+            <td>
+                <MudTextField @bind-Value="UserUpdateRequest.Email" Variant="Variant.Text" />
+            </td>
+        </tr>
+        <tr>
+            <th>
+                Secondary Email
+            </th>
+            <td>
+                <MudTextField @bind-Value="UserUpdateRequest.SecondaryEmail" Variant="Variant.Text" />
+            </td>
+        </tr>
+        <tr>
+            <th>
+                Current Password
+            </th>
+            <td>
+                <MudTextField @bind-Value="CurrentPassword" Variant="Variant.Text" InputType="CurrentPasswordInputType"
+                              Adornment="Adornment.End" AdornmentIcon="@CurrentPasswordIcon"
+                              OnAdornmentClick="CurrentPasswordVisibilityToggle" AdornmentAriaLabel="Show Password"
+                              ErrorText="@CurrentPasswordErrorMessage" Error="CurrentPasswordError"/>
+            </td>
+        </tr>
+        <tr>
+            <th>
+                New Password
+            </th>
+            <td>
+                <MudTextField @bind-Value="NewPassword" Variant="Variant.Text" InputType="NewPasswordInputType"
+                              Adornment="Adornment.End" AdornmentIcon="@NewPasswordIcon"
+                              OnAdornmentClick="NewPasswordVisibilityToggle" AdornmentAriaLabel="Show Password"
+                              DebounceInterval="100" OnDebounceIntervalElapsed="ValidatePassword" 
+                              ErrorText="@NewPasswordErrorMessage" Error="NewPasswordError"/>
+            </td>
+        </tr>
+        <tr>
+            <th>
+                Confirm New Password
+            </th>
+            <td>
+                <MudTextField @bind-Value="ConfirmNewPassword" Variant="Variant.Text" InputType="ConfirmNewPasswordInputType"
+                              Adornment="Adornment.End" AdornmentIcon="@ConfirmNewPasswordIcon" 
+                              OnAdornmentClick="ConfirmNewPasswordVisibilityToggle" AdornmentAriaLabel="Show Password"
+                              DebounceInterval="100" OnDebounceIntervalElapsed="ValidateConfirmPassword"
+                              ErrorText="@ConfirmNewPasswordErrorMessage" Error="ConfirmNewPasswordError"/>
+            </td>
+        </tr>
+        
+        </tbody>
+    </MudSimpleTable>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="UpdateUser">Update</MudButton>
+}
+
+@code {
+    private UserDto? User { get; set; }
+    private UserUpdateRequest UserUpdateRequest { get; set; } = null!;
+    private string CurrentPassword { get; set; } = "";
+    private string CurrentPasswordErrorMessage { get; set; } = "";
+    private InputType CurrentPasswordInputType { get; set; } = InputType.Password;
+    private string CurrentPasswordIcon { get; set; } = Icons.Material.Filled.VisibilityOff;
+    private bool CurrentPasswordError => CurrentPasswordErrorMessage != "";
+    private string NewPassword { get; set; } = "";
+    private string NewPasswordErrorMessage { get; set; } = "";
+    private InputType NewPasswordInputType { get; set; } = InputType.Password;
+    private string NewPasswordIcon { get; set; } = Icons.Material.Filled.VisibilityOff;
+    private bool NewPasswordError => NewPasswordErrorMessage != "";
+    private string ConfirmNewPassword { get; set; } = "";
+    private string ConfirmNewPasswordErrorMessage { get; set; } = "";
+    private InputType ConfirmNewPasswordInputType { get; set; } = InputType.Password;
+    private string ConfirmNewPasswordIcon { get; set; } = Icons.Material.Filled.VisibilityOff;
+    private bool ConfirmNewPasswordError => ConfirmNewPasswordErrorMessage != "";
+    
+    protected override async Task OnInitializedAsync()
+    {
+        var user = await HttpUtility.GetUser(Http);
+        if (user is null)
+        {
+            NavigationManager.NavigateTo("/login");
+            return;
+        }
+        
+        User = user;
+        UserUpdateRequest = UserUpdateRequest.FromUserDto(User);
+        StateHasChanged();
+    }
+
+    private void CurrentPasswordVisibilityToggle()
+    {
+        (CurrentPasswordInputType, CurrentPasswordIcon) = VisibilityToggle(CurrentPasswordIcon);
+    }
+    
+    private void NewPasswordVisibilityToggle()
+    {
+        (NewPasswordInputType, NewPasswordIcon) = VisibilityToggle(NewPasswordIcon);
+    }
+    
+    private void ConfirmNewPasswordVisibilityToggle()
+    {
+        (ConfirmNewPasswordInputType, ConfirmNewPasswordIcon) = VisibilityToggle(ConfirmNewPasswordIcon);
+    }
+
+    private static (InputType, string) VisibilityToggle(string current)
+    {
+        return current == Icons.Material.Filled.Visibility 
+            ? (InputType.Password, Icons.Material.Filled.VisibilityOff) 
+            : (InputType.Text, Icons.Material.Filled.Visibility);
+    }
+    
+    private void ValidatePassword(string password)
+    {
+        NewPasswordErrorMessage = CheckPassword(password, out var errorMessage) ? "" : errorMessage;
+    }
+
+    private void ValidateConfirmPassword()
+    {
+        if (ConfirmNewPassword != "")
+        {
+            ConfirmNewPasswordErrorMessage = ConfirmNewPassword == NewPassword ? "" : "Passwords do not match.";
+        }
+        else
+        {
+            ConfirmNewPasswordErrorMessage = "";
+        }
+    }
+
+    private static bool CheckPassword(string password, out string errorMessage)
+    {
+        if (password == "")
+        {
+            errorMessage = "";
+            return true;
+        }
+        
+        var requirementsMet = PasswordRequirements.None;
+        if (password.Length >= 15)
+        {
+            requirementsMet |= PasswordRequirements.Length;
+        }
+        
+        foreach(var c in password)
+        {
+            if (char.IsLower(c))
+            {
+                requirementsMet |= PasswordRequirements.Lowercase;
+            }
+            else if (char.IsUpper(c))
+            {
+                requirementsMet |= PasswordRequirements.Uppercase;
+            }
+            else if (char.IsDigit(c))
+            {
+                requirementsMet |= PasswordRequirements.Number;
+            }
+            else if (char.IsSymbol(c) || char.IsPunctuation(c))
+            {
+                requirementsMet |= PasswordRequirements.SpecialCharacter;
+            }
+        }
+
+        if ((requirementsMet & PasswordRequirements.Satisfied) == PasswordRequirements.Satisfied)
+        {
+            errorMessage = "";
+            return true;
+        }
+
+        
+        errorMessage = "Password does not meet requirements.";
+        if ((requirementsMet & PasswordRequirements.Length) != PasswordRequirements.Length)
+        {
+            errorMessage = "Password must be at least 15 characters long.";
+        }
+        else if ((requirementsMet & PasswordRequirements.Lowercase) != PasswordRequirements.Lowercase)
+        {
+            errorMessage = "Password must contain at least one lowercase letter.";
+        }
+        else if ((requirementsMet & PasswordRequirements.Uppercase) != PasswordRequirements.Uppercase)
+        {
+            errorMessage = "Password must contain at least one uppercase letter.";
+        }
+        else if ((requirementsMet & PasswordRequirements.Number) != PasswordRequirements.Number)
+        {
+            errorMessage = "Password must contain at least one number.";
+        }
+        else if ((requirementsMet & PasswordRequirements.SpecialCharacter) != PasswordRequirements.SpecialCharacter)
+        {
+            errorMessage = "Password must contain at least one special character.";
+        }
+        
+        return false;
+    }
+
+    private async Task UpdateUser()
+    {
+        if (NewPasswordError)
+        {
+            return;
+        }
+        
+        if (ConfirmNewPasswordError)
+        {
+            return;
+        }
+        
+        if(NewPassword != "" && CurrentPassword == "")
+        {
+            ConfirmNewPasswordErrorMessage = "Please enter your current password.";
+            return;
+        }
+        
+        // TODO: Add support to change user first and last name
+        if (User!.Email != UserUpdateRequest.Email)
+        {
+            var success = await HttpUtility.UpdateUserEmail(Http, UserUpdateRequest.Email);
+            if (success)
+            {
+                Snackbar.Add("Email updated successfully!", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add("Failed to update email.", Severity.Error);
+            }
+        }
+        if(User.SecondaryEmail != UserUpdateRequest.SecondaryEmail)
+        {
+            var success = await HttpUtility.UpdateUserSecondaryEmail(Http, UserUpdateRequest.SecondaryEmail);
+            if (success)
+            {
+                Snackbar.Add("Secondary email updated successfully!", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add("Failed to update secondary email.", Severity.Error);
+            }
+        }
+
+        if (NewPassword != "")
+        {
+            var error = await HttpUtility.UpdateUserPassword(Http, CurrentPassword, NewPassword);
+            if (error == PasswordError.None)
+            {
+                Snackbar.Add("Password updated successfully!", Severity.Success);
+            }
+            else
+            {
+                switch (error)
+                {
+                    case PasswordError.PasswordTooShort:
+                        NewPasswordErrorMessage = "Password must be at least 15 characters long.";
+                        break;
+                    case PasswordError.PasswordRequiresNonAlphanumeric:
+                        NewPasswordErrorMessage = "Password must contain at least one special character.";
+                        break;
+                    case PasswordError.PasswordRequiresLower:
+                        NewPasswordErrorMessage = "Password must contain at least one lowercase letter.";
+                        break;
+                    case PasswordError.PasswordRequiresUpper:
+                        NewPasswordErrorMessage = "Password must contain at least one uppercase letter.";
+                        break;
+                    case PasswordError.PasswordRequiresDigit:
+                        NewPasswordErrorMessage = "Password must contain at least one number.";
+                        break;
+                    case PasswordError.PasswordRequiresUniqueChars:
+                        NewPasswordErrorMessage = "Password must contain at least one special character.";
+                        break;
+                    case PasswordError.PasswordRequirementsNotMet:
+                        NewPasswordErrorMessage = "Password does not meet requirements.";
+                        break;
+                    case PasswordError.UnknownError:
+                        NewPasswordErrorMessage = "An unknown error occurred.";
+                        break;
+                    case PasswordError.None:
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
+            }
+        }
+    }
+
+    [Flags]
+    private enum PasswordRequirements
+    {
+        None,
+        Length = 1 << 0,
+        Lowercase = 1 << 1,
+        Uppercase = 1 << 2,
+        Number = 1 << 3,
+        SpecialCharacter = 1 << 4,
+        Satisfied = Length | Lowercase | Uppercase | Number | SpecialCharacter
+    }
+}

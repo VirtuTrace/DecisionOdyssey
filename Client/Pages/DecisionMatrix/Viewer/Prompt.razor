@@ -27,7 +27,7 @@ else
 {
     if (YoutubeVideoId is not null)
     {
-        <MudPaper Height="720px" Elevation="0">
+        <MudPaper Height="720px" Width="1280px" Elevation="0">
             <iframe style="height: 100%; width: 100%;" src=@($"https://www.youtube-nocookie.com/embed/{YoutubeVideoId}")
                     allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen>
             </iframe>
@@ -65,7 +65,7 @@ else
             </MudItem>
         }
     </MudGrid>
-    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Continue">Continue</MudButton>
+    <MudButton Class="mt-16" Variant="Variant.Filled" Color="Color.Primary" OnClick="Continue">Continue</MudButton>
 }
 
 @code {

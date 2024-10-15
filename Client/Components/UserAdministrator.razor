@@ -8,13 +8,13 @@
 
 <MudContainer Class="d-flex flex-row flex-grow-1 gap-4 align-content-center">
     @{
-    var name = User.FirstName + " " + User.LastName;
-    <MudTextField ReadOnly="true" Label="Name" Value="name" Variant="Variant.Outlined"/>
+        var name = User.FirstName + " " + User.LastName;
+        <MudTextField ReadOnly="true" Label="Name" Value="name" Variant="Variant.Outlined"/>
     }
     <MudSelect Label="Role" @bind-Value="InternalUserRole">
         @foreach (var role in ManageableRoles[ApplicationState.Role])
         {
-        <MudSelectItem Value="@role">@role</MudSelectItem>
+            <MudSelectItem Value="@role">@role</MudSelectItem>
         }
     </MudSelect>
     <MudCheckBox @bind-Value="InternalUserLocked" Label="Locked" Color="Color.Primary" />

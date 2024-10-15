@@ -110,7 +110,11 @@ else
                 }
             }
 
-            if (user.ChangedUserData.HasFlag(ChangedUserData.LockoutEnd))
+            if (!user.ChangedUserData.HasFlag(ChangedUserData.LockoutEnd))
+            {
+                continue;
+            }
+
             {
                 bool successful;
                 if (user.IsLockedOut)

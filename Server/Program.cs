@@ -87,10 +87,16 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowSpecificOrigin",
         policyBuilder =>
         {
-            policyBuilder.WithOrigins("https://decisionodyssey.ddns.net")
-                    .WithOrigins("https://localhost:5000")
-                    .WithOrigins("https://localhost:443")
-                    .WithOrigins("https://localhost:80")
+            // TODO: Remove localhost and hard-coded IP origins
+            policyBuilder.WithOrigins(
+                    "https://decisionodyssey.com",
+                    "https://localhost:5000",
+                    "https://localhost:443",
+                    "https://localhost:80",
+                    "https://3.141.31.200",
+                    "https://3.141.31.200:443",
+                    "https://3.141.31.200:80",
+                    "https://3.141.31.200:5000")
                     .WithExposedHeaders("Token-Expired")
                     .AllowAnyHeader()
                     .AllowAnyMethod()
@@ -102,7 +108,10 @@ builder.Services.AddCors(options =>
 builder.Services.AddRouting(options => options.LowercaseUrls = true);
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddOpenApiDocument(config =>
+{
+    config.Title = "Decision Odyssey API";
+});
 
 #if DEBUG
 
@@ -136,15 +145,13 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
 app.UseCors("AllowSpecificOrigin");
 if (app.Environment.IsDevelopment())
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseOpenApi();
+    app.UseSwaggerUi();
 }
 else
 {
     app.UseHttpsRedirection();
 }
-
-//app.UseCors("AllowSpecificOrigin");
 
 app.UseRouting();
 app.UseAuthentication();
